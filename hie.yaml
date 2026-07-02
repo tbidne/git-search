@@ -1,0 +1,7 @@
+cradle:
+  cabal:
+    - path: "./src"
+      component: "lib:git-search"
+
+    - path: "./app/Main.hs"
+      component: "git-search:exe:git-search"
