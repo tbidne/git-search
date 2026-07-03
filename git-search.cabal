@@ -32,6 +32,7 @@ common common-lang
     OverloadedStrings
     PatternSynonyms
     StrictData
+    TypeFamilies
 
   default-language:   GHC2024
 
@@ -40,6 +41,7 @@ library
   exposed-modules:
     Git.Search
     Git.Search.Args
+    Git.Search.Config
 
   build-depends:
     , base                  >=4.14.0.0  && <4.23

@@ -73,7 +73,7 @@ testSearchNixpkgs = testCase "Finds branches in nixos/nixpkgs" $ do
       [ "--debug",
         "--hash",
         "c190319055bb5c31acfd7bb8356ce9ab05cb2b36",
-        "--repo",
+        "--name",
         "nixos/nixpkgs"
       ]
 

@@ -1,6 +1,5 @@
 module Git.Search.Args
-  ( Args (..),
-    getArgs,
+  ( getArgs,
   )
 where
 
@@ -9,8 +8,12 @@ import Effectful.Optparse.Static (Optparse)
 import Effectful.Optparse.Static qualified as EOA
 import FileSystem.OsString (OsString)
 import FileSystem.OsString qualified as FS.OsStr
-import FileSystem.Path (Dir, Path, Rel)
-import FileSystem.Path qualified as FS.Path
+import Git.Search.Config
+  ( Args,
+    Config (MkConfig, clean, debug, hash, repo),
+    Protocol (ProtocolHttps, ProtocolSsh),
+    RepoArgs (MkRepoArgs, domain, name, protocol),
+  )
 import Options.Applicative
   ( Mod,
     Parser,
@@ -31,17 +34,6 @@ import Options.Applicative.Help.Chunk (Chunk (Chunk))
 import Options.Applicative.Help.Chunk qualified as Chunk
 import Options.Applicative.Help.Pretty qualified as Pretty
 import Options.Applicative.Types (ArgPolicy (Intersperse))
-
-data Args = MkArgs
-  { clean :: Bool,
-    debug :: Bool,
-    hash :: OsString,
-    -- Name like nixos/nixpkgs
-    repoName :: OsString,
-    -- The same as repo name but possibly normalized e.g. on windows
-    -- nixos\nixpkgs.
-    repoRelPath :: Path Rel Dir
-  }
 
 getArgs :: (Optparse :> es) => Eff es Args
 getArgs = EOA.execParser parserInfoArgs
@@ -70,19 +62,42 @@ argsParser = do
   p <**> OA.helper
   where
     p = do
-      clean <- cleanParser
-      debug <- debugParser
-      hash <- hashParser
-      (repoName, repoRelPath) <- repoNameParser
+      ~(hash, name) <- parseRequired
+
+      ~(domain, protocol) <- parseRepo
+
+      ~(clean, debug) <- parseMisc
 
       pure $
-        MkArgs
+        MkConfig
           { clean,
             debug,
             hash,
-            repoName,
-            repoRelPath
+            repo =
+              MkRepoArgs
+                { domain,
+                  name,
+                  protocol
+                }
           }
+
+    parseRequired =
+      OA.parserOptionGroup "Required fields:" $
+        (,)
+          <$> hashParser
+          <*> nameParser
+
+    parseRepo =
+      OA.parserOptionGroup "Repository options:" $
+        (,)
+          <$> domainParser
+          <*> protocolParser
+
+    parseMisc =
+      OA.parserOptionGroup "Miscellaneous options:" $
+        (,)
+          <$> cleanParser
+          <*> debugParser
 
 cleanParser :: Parser Bool
 cleanParser =
@@ -101,8 +116,21 @@ debugParser =
   OA.switch $
     mconcat
       [ OA.long "debug",
-        mkHelp "Enables additional logging."
+        mkHelpNoLine "Enables additional logging."
       ]
+
+domainParser :: Parser (Maybe OsString)
+domainParser =
+  OA.optional
+    $ OA.option
+      r
+    $ mconcat
+      [ OA.long "domain",
+        OA.metavar "STR",
+        mkHelp "Repository domain. Defaults to github.com."
+      ]
+  where
+    r = OA.str >>= FS.OsStr.encodeFail
 
 hashParser :: Parser OsString
 hashParser =
@@ -116,37 +144,49 @@ hashParser =
   where
     r = OA.str >>= FS.OsStr.encodeFail
 
-repoNameParser :: Parser (OsString, Path Rel Dir)
-repoNameParser =
+nameParser :: Parser OsString
+nameParser =
   OA.option
     r
     $ mconcat
-      [ OA.long "repo",
-        OA.metavar "REPO",
-        mkHelp $
+      [ OA.long "name",
+        OA.metavar "STR",
+        mkHelpNoLine $
           mconcat
             [ "Repository name. This should be the organization and repo ",
               "following github.com e.g. nixos/nixpkgs for ",
-              "github.com/nixos/nixpkgs."
+              "github.com/nixos/nixpkgs. Mutually exclusive with --repo."
             ]
       ]
   where
-    r = do
-      nameStr <- OA.str
-      nameOsStr <- FS.OsStr.encodeFail nameStr
+    r = OA.str >>= FS.OsStr.encodeFail
 
-      case FS.Path.parseRelDir nameOsStr of
-        Nothing ->
-          fail $
-            mconcat
-              [ "Failed parsing relative directory from: ",
-                nameStr
-              ]
-        Just name -> pure (nameOsStr, name)
+protocolParser :: Parser (Maybe Protocol)
+protocolParser =
+  OA.optional
+    $ OA.option
+      r
+    $ mconcat
+      [ OA.long "protocol",
+        OA.metavar "(https | ssh)",
+        mkHelpNoLine "Protocol to use. Defaults to https."
+      ]
+  where
+    r =
+      OA.str >>= \case
+        "https" -> pure ProtocolHttps
+        "ssh" -> pure ProtocolSsh
+        other -> fail $ "Unknown protocol: " ++ other
 
 mkHelp :: String -> Mod f a
 mkHelp =
   OA.helpDoc
     . fmap (<> Pretty.hardline)
+    . Chunk.unChunk
+    . Chunk.paragraph
+
+mkHelpNoLine :: String -> Mod f a
+mkHelpNoLine =
+  OA.helpDoc
     . Chunk.unChunk
     . Chunk.paragraph
