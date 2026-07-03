@@ -4,6 +4,9 @@ module Git.Search.Args
   )
 where
 
+import Effectful (Eff, (:>))
+import Effectful.Optparse.Static (Optparse)
+import Effectful.Optparse.Static qualified as EOA
 import FileSystem.OsString (OsString)
 import FileSystem.OsString qualified as FS.OsStr
 import FileSystem.Path (Dir, Path, Rel)
@@ -30,14 +33,18 @@ import Options.Applicative.Help.Pretty qualified as Pretty
 import Options.Applicative.Types (ArgPolicy (Intersperse))
 
 data Args = MkArgs
-  { cache :: Bool,
+  { clean :: Bool,
     debug :: Bool,
     hash :: OsString,
-    repoName :: Path Rel Dir
+    -- Name like nixos/nixpkgs
+    repoName :: OsString,
+    -- The same as repo name but possibly normalized e.g. on windows
+    -- nixos\nixpkgs.
+    repoRelPath :: Path Rel Dir
   }
 
-getArgs :: IO Args
-getArgs = OA.execParser parserInfoArgs
+getArgs :: (Optparse :> es) => Eff es Args
+getArgs = EOA.execParser parserInfoArgs
   where
     parserInfoArgs =
       ParserInfo
@@ -63,28 +70,29 @@ argsParser = do
   p <**> OA.helper
   where
     p = do
-      cache <- cacheParser
+      clean <- cleanParser
       debug <- debugParser
       hash <- hashParser
-      repoName <- repoNameParser
+      (repoName, repoRelPath) <- repoNameParser
 
       pure $
         MkArgs
-          { cache,
+          { clean,
             debug,
             hash,
-            repoName
+            repoName,
+            repoRelPath
           }
 
-cacheParser :: Parser Bool
-cacheParser =
+cleanParser :: Parser Bool
+cleanParser =
   OA.switch $
     mconcat
-      [ OA.long "cache",
+      [ OA.long "clean",
         mkHelp $
           mconcat
-            [ "Caches the repository. Useful when cloning is expensive, and ",
-              "we want to search for multiple hashes."
+            [ "Performs a clean clone of the repo, overwriting any previous ",
+              "repo."
             ]
       ]
 
@@ -108,7 +116,7 @@ hashParser =
   where
     r = OA.str >>= FS.OsStr.encodeFail
 
-repoNameParser :: Parser (Path Rel Dir)
+repoNameParser :: Parser (OsString, Path Rel Dir)
 repoNameParser =
   OA.option
     r
@@ -134,7 +142,7 @@ repoNameParser =
               [ "Failed parsing relative directory from: ",
                 nameStr
               ]
-        Just name -> pure name
+        Just name -> pure (nameOsStr, name)
 
 mkHelp :: String -> Mod f a
 mkHelp =

@@ -37,3 +37,7 @@ jobs:
 
       - name: Compile
         run: cabal build
+
+      - name: Test
+        shell: bash
+        run: TEST_FUNCTIONAL=1 cabal test functional
