@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Git.Search.Args
@@ -6,6 +7,7 @@ module Git.Search.Args
 where
 
 import Data.List qualified as L
+import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.String (IsString (fromString))
 import Data.Version (showVersion)
 import Effectful (Eff, (:>))
@@ -36,6 +38,7 @@ import Options.Applicative
     (<**>),
   )
 import Options.Applicative qualified as OA
+import Options.Applicative.Help (Doc)
 import Options.Applicative.Help.Chunk (Chunk (Chunk))
 import Options.Applicative.Help.Chunk qualified as Chunk
 import Options.Applicative.Help.Pretty qualified as Pretty
@@ -70,8 +73,52 @@ getArgs = EOA.execParser parserInfoArgs
             mconcat
               [ "Initially, the git repository is cloned and cached. Subsequent ",
                 "searches invoke 'fetch' for performance."
-              ]
+              ],
+          Chunk.paragraph "Examples:",
+          mkExample
+            [ "1. Running for the first time:",
+              "",
+              "$ git-search --hash c190319 --name nixos/nixpkgs",
+              "Cloning https://github.com/nixos/nixpkgs...",
+              "Clone finished: 8 minutes, 55 seconds",
+              "Searching for hash f61423d...",
+              "Search finished: 3 minutes, 57 seconds",
+              "Found branches:",
+              " - origin/master",
+              " - origin/nixos-unstable",
+              " - origin/nixos-unstable-small",
+              " ..."
+            ],
+          mkExample
+            [ "2. Running a second time, using the cache:",
+              "",
+              "$ git-search --hash c190319 --name nixos/nixpkgs",
+              "Fetching https://github.com/nixos/nixpkgs...",
+              "Fetch finished: 1 second",
+              "Searching for hash f61423d...",
+              "Search finished: 5 minutes, 54 seconds",
+              "Found branches:",
+              " - origin/master",
+              " - origin/nixos-unstable",
+              " - origin/nixos-unstable-small",
+              " ..."
+            ]
         ]
+
+    mkExample :: NonEmpty String -> Chunk Doc
+    mkExample = identPara 2 5
+
+    identPara :: Int -> Int -> NonEmpty String -> Chunk Doc
+    identPara hIndent lIndent (h :| xs) =
+      Chunk.vcatChunks
+        . (\ys -> toChunk hIndent h : ys)
+        . fmap (toChunk lIndent)
+        $ xs
+
+    toChunk _ "" = line
+    toChunk i other = fmap (Pretty.indent i) . Chunk.stringChunk $ other
+
+    line = Chunk (Just Pretty.softline)
 
 argsParser :: Parser Args
 argsParser = do
