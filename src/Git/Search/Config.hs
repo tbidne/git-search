@@ -25,16 +25,16 @@ where
 import Data.Kind (Type)
 import Data.Maybe (fromMaybe)
 import Effectful (Eff, (:>))
+import Effectful.FileSystem.PathReader.Static (PathReader)
+import Effectful.FileSystem.PathReader.Static qualified as PR
+import Effectful.FileSystem.PathWriter.Static (PathWriter)
+import Effectful.FileSystem.PathWriter.Static qualified as PW
 import FileSystem.OsString (OsString, osstr)
 #if MIN_VERSION_GLASGOW_HASKELL(9, 14, 1, 0)
 import FileSystem.Path (Abs, Dir, Path, (<</>>), data MkPath)
 #else
 import FileSystem.Path (Abs, Dir, Path, (<</>>), pattern MkPath)
 #endif
-import Effectful.FileSystem.PathReader.Static (PathReader)
-import Effectful.FileSystem.PathReader.Static qualified as PR
-import Effectful.FileSystem.PathWriter.Static (PathWriter)
-import Effectful.FileSystem.PathWriter.Static qualified as PW
 import FileSystem.Path qualified as FS.Path
 import GHC.Stack.Types (HasCallStack)
 
@@ -46,18 +46,19 @@ data Protocol
   = ProtocolHttps
   | ProtocolSsh
 
--- --domain, --name, --protocol
 data RepoArgs = MkRepoArgs
-  { domain :: Maybe OsString,
-    -- Name like nixos/nixpkgs
+  { -- | Domain e.g. github.com
+    domain :: Maybe OsString,
+    -- | Repo name e.g. org/repo
     name :: OsString,
-    -- Full src like https://github.com/nixos/nixpkgs
+    -- | Protocol e.g. https
     protocol :: Maybe Protocol
   }
 
 data RepoEnv = MkRepoEnv
-  { -- | Path to cloned repo e.g. ~/.cache/
+  { -- | Path to cloned repo e.g. ~/.cache/git-search/org/repo
     path :: Path Abs Dir,
+    -- | Full source e.g. https://github.com/org/repo
     src :: OsString
   }
 
@@ -68,9 +69,14 @@ type family RepoF p where
 
 type Config :: ConfigPhase -> Type
 data Config p = MkConfig
-  { clean :: Bool,
+  { -- | Performs a clean clone of the repo. Otherwise runs 'fetch' if the
+    -- repo exists.
+    clean :: Bool,
+    -- | Additional debug logging.
     debug :: Bool,
+    -- | Hash to search.
     hash :: OsString,
+    -- | Repo params.
     repo :: RepoF p
   }
 
@@ -78,6 +84,7 @@ type Args = Config ConfigPhaseArgs
 
 type Env = Config ConfigPhaseEnv
 
+-- | Evolves the CLI Args to runtime Env.
 toEnv ::
   ( HasCallStack,
     PathReader :> es,

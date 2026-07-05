@@ -24,5 +24,5 @@ main = do
     . P.runProcess
     . Term.runTerminal
     . Time.runTime
-    $ Git.Search.runSearch
+    $ Git.Search.searchPrint
       =<< Git.Search.Args.getArgs

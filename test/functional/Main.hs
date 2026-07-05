@@ -45,12 +45,12 @@ main = guardOrElse' "TEST_FUNCTIONAL" ExpectEnvSet runTests dontRun
 testSearchNixpkgs :: TestTree
 testSearchNixpkgs = testCase "Finds branches in nixos/nixpkgs" $ do
   start1 <- CC.getMonotonicTime
-  results1 <- Set.fromList <$> runSearch args1
+  results1 <- Set.fromList <$> searchPrint args1
   end1 <- CC.getMonotonicTime
   assertResults results1
 
   start2 <- CC.getMonotonicTime
-  results2 <- Set.fromList <$> runSearch args2
+  results2 <- Set.fromList <$> searchPrint args2
   end2 <- CC.getMonotonicTime
   assertResults results2
 
@@ -99,7 +99,7 @@ testSearchNixpkgs = testCase "Finds branches in nixos/nixpkgs" $ do
         "origin/staging-nixos"
       ]
 
-    runSearch args = do
+    searchPrint args = do
       logsRef <- IORef.newIORef []
 
       eResult <-

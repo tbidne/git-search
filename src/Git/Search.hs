@@ -1,7 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 
 module Git.Search
-  ( runSearch,
+  ( searchPrint,
     search,
   )
 where
@@ -39,7 +39,7 @@ import Git.Search.Config qualified as Config
 import System.Exit (ExitCode (ExitFailure, ExitSuccess))
 
 -- | Prints a list of branches matching the search criteria.
-runSearch ::
+searchPrint ::
   ( HasCallStack,
     PathReader :> es,
     PathWriter :> es,
@@ -49,7 +49,7 @@ runSearch ::
   ) =>
   Args ->
   Eff es ()
-runSearch args = do
+searchPrint args = do
   branches <- search args
 
   case branches of
@@ -147,7 +147,8 @@ findBranches ::
     Terminal :> es,
     Time :> es
   ) =>
-  Env -> Eff es [Text]
+  Env ->
+  Eff es [Text]
 findBranches env = do
   Term.putStrLn $ "Searching for hash " ++ hashStr ++ "..."
 
@@ -180,7 +181,8 @@ doesCommitExist ::
     Process :> es,
     Terminal :> es
   ) =>
-  Env -> Eff es Bool
+  Env ->
+  Eff es Bool
 doesCommitExist env = do
   (ec, _, _) <-
     PW.withCurrentDirectory (FS.Path.toOsPath env.repo.path) $
@@ -200,7 +202,9 @@ runGitOut ::
     Process :> es,
     Terminal :> es
   ) =>
-  Env -> [OsString] -> Eff es OsString
+  Env ->
+  [OsString] ->
+  Eff es OsString
 runGitOut env args = runProcessOut env [osstr|git|] args
 
 runGit ::
@@ -208,7 +212,9 @@ runGit ::
     Process :> es,
     Terminal :> es
   ) =>
-  Env -> [OsString] -> Eff es (ExitCode, String, String)
+  Env ->
+  [OsString] ->
+  Eff es (ExitCode, String, String)
 runGit env args = runProcess env [osstr|git|] args
 
 runGit_ ::
@@ -290,12 +296,19 @@ logDebug ::
   ( HasCallStack,
     Terminal :> es
   ) =>
-  Env -> Eff es String -> Eff es ()
+  Env ->
+  Eff es String ->
+  Eff es ()
 logDebug env mkStr = when env.debug $ do
   s <- mkStr
   Term.putStrLn $ "[Debug]: " ++ s
 
-withTiming :: (HasCallStack, Time :> es) => Eff es a -> Eff es (String, a)
+withTiming ::
+  ( HasCallStack,
+    Time :> es
+  ) =>
+  Eff es a ->
+  Eff es (String, a)
 withTiming m = do
   (ts, r) <- Time.withTiming m
   let tsStr =
