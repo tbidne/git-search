@@ -1,6 +1,9 @@
 module Main (main) where
 
 import Effectful qualified
+import Effectful.Concurrent qualified as CC
+import Effectful.FileSystem.HandleReader.Static qualified as HR
+import Effectful.FileSystem.HandleWriter.Static qualified as HW
 import Effectful.FileSystem.PathReader.Static qualified as PR
 import Effectful.FileSystem.PathWriter.Static qualified as PW
 import Effectful.Optparse.Static qualified as EOA
@@ -18,6 +21,9 @@ main = do
   IO.hSetBuffering IO.stdout IO.LineBuffering
 
   Effectful.runEff
+    . CC.runConcurrent
+    . HR.runHandleReader
+    . HW.runHandleWriter
     . PR.runPathReader
     . PW.runPathWriter
     . EOA.runOptparse

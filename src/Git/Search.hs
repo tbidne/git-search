@@ -7,13 +7,22 @@ module Git.Search
 where
 
 import Control.Exception.Utils qualified as Ex.Utils
-import Control.Monad (when)
+import Control.Monad (forever, void, when)
+import Data.Functor ((<&>))
 import Data.List qualified as L
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Relative (Format (verbosity))
 import Data.Time.Relative qualified as Time.Rel
 import Effectful (Eff, (:>))
+import Effectful.Concurrent qualified as CC
+import Effectful.Concurrent.Async (Concurrent)
+import Effectful.Concurrent.Async qualified as Async
+import Effectful.Exception qualified as Ex
+import Effectful.FileSystem.HandleReader.Static (HandleReader)
+import Effectful.FileSystem.HandleReader.Static qualified as HR
+import Effectful.FileSystem.HandleWriter.Static (HandleWriter)
+import Effectful.FileSystem.HandleWriter.Static qualified as HW
 import Effectful.FileSystem.PathReader.Static (PathReader)
 import Effectful.FileSystem.PathReader.Static qualified as PR
 import Effectful.FileSystem.PathWriter.Static (PathWriter)
@@ -37,10 +46,14 @@ import Git.Search.Config
   )
 import Git.Search.Config qualified as Config
 import System.Exit (ExitCode (ExitFailure, ExitSuccess))
+import System.IO qualified as IO
 
 -- | Prints a list of branches matching the search criteria.
 searchPrint ::
-  ( HasCallStack,
+  ( Concurrent :> es,
+    HasCallStack,
+    HandleReader :> es,
+    HandleWriter :> es,
     PathReader :> es,
     PathWriter :> es,
     Process :> es,
@@ -49,8 +62,11 @@ searchPrint ::
   ) =>
   Args ->
   Eff es ()
-searchPrint args = do
-  branches <- search args
+searchPrint args = withHiddenInput $ do
+  branches <-
+    race'
+      (search args)
+      drainStdinLoop
 
   case branches of
     [] -> Term.putStrLn "No branches found."
@@ -332,3 +348,56 @@ withTiming m = do
 
 withTiming_ :: (HasCallStack, Time :> es) => Eff es a -> Eff es String
 withTiming_ = fmap fst . withTiming
+
+withHiddenInput ::
+  ( HasCallStack,
+    HandleReader :> es,
+    HandleWriter :> es
+  ) =>
+  Eff es a ->
+  Eff es a
+withHiddenInput m = Ex.bracket hideInput unhideInput (const m)
+  where
+    -- Note that this may not work on windows, if we ever want that.
+    --
+    -- - https://stackoverflow.com/questions/15848975/preventing-input-characters-appearing-in-terminal
+    -- - https://hackage.haskell.org/package/echo
+    hideInput = do
+      buffMode <- HR.hGetBuffering IO.stdin
+      echoMode <- HR.hGetEcho IO.stdin
+      HW.hSetBuffering IO.stdin HW.NoBuffering
+      HW.hSetEcho IO.stdin False
+      pure (buffMode, echoMode)
+
+    unhideInput (buffMode, echoMode) = do
+      HW.hSetBuffering IO.stdin buffMode
+      HW.hSetEcho IO.stdin echoMode
+
+drainStdinLoop ::
+  forall es void.
+  ( Concurrent :> es,
+    HasCallStack,
+    HandleReader :> es
+  ) =>
+  Eff es void
+drainStdinLoop = go
+  where
+    go = forever $ do
+      drainStdin
+      -- 60_000_000 microseconds <=> 60 seconds
+      CC.threadDelay 60_000_000
+
+drainStdin :: (HasCallStack, HandleReader :> es) => Eff es ()
+drainStdin =
+  void $
+    Ex.Utils.trySync $
+      HR.hIsClosed IO.stdin
+        >>= \case
+          True -> pure ()
+          False ->
+            HR.hIsReadable IO.stdin >>= \case
+              False -> pure ()
+              True -> void $ HR.hGetNonBlocking IO.stdin 1_000
+
+race' :: (Concurrent :> es) => Eff es a -> Eff es a -> Eff es a
+race' mx my = Async.race mx my <&> either id id
