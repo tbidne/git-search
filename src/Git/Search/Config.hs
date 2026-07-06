@@ -72,10 +72,10 @@ data Config p = MkConfig
   { -- | Performs a clean clone of the repo. Otherwise runs 'fetch' if the
     -- repo exists.
     clean :: Bool,
+    -- | Commit hash to search.
+    commit :: OsString,
     -- | Additional debug logging.
     debug :: Bool,
-    -- | Hash to search.
-    hash :: OsString,
     -- | Repo params.
     repo :: RepoF p
   }
@@ -128,8 +128,8 @@ toEnv args = do
   pure $
     MkConfig
       { clean = args.clean,
+        commit = args.commit,
         debug = args.debug,
-        hash = args.hash,
         repo
       }
 

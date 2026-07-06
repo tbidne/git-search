@@ -18,7 +18,7 @@ import FileSystem.OsString qualified as FS.OsStr
 import Git.Search.Args.TH qualified as TH
 import Git.Search.Config
   ( Args,
-    Config (MkConfig, clean, debug, hash, repo),
+    Config (MkConfig, clean, commit, debug, repo),
     Protocol (ProtocolHttps, ProtocolSsh),
     RepoArgs (MkRepoArgs, domain, name, protocol),
   )
@@ -127,7 +127,7 @@ argsParser = do
     <**> OA.helper
   where
     p = do
-      ~(hash, name) <- parseRequired
+      ~(commit, name) <- parseRequired
 
       ~(domain, protocol) <- parseRepo
 
@@ -136,8 +136,8 @@ argsParser = do
       pure $
         MkConfig
           { clean,
+            commit,
             debug,
-            hash,
             repo =
               MkRepoArgs
                 { domain,
@@ -149,7 +149,7 @@ argsParser = do
     parseRequired =
       OA.parserOptionGroup "Required fields:" $
         (,)
-          <$> hashParser
+          <$> commitParser
           <*> nameParser
 
     parseRepo =
@@ -198,12 +198,12 @@ domainParser =
   where
     r = OA.str >>= FS.OsStr.encodeFail
 
-hashParser :: Parser OsString
-hashParser =
+commitParser :: Parser OsString
+commitParser =
   OA.option
     r
     $ mconcat
-      [ OA.long "hash",
+      [ OA.long "commit",
         OA.metavar "HASH",
         mkHelp "Commit hash for which we want to search."
       ]

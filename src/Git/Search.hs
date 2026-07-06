@@ -31,7 +31,7 @@ import FileSystem.Path qualified as FS.Path
 import GHC.Stack.Types (HasCallStack)
 import Git.Search.Config
   ( Args,
-    Config (clean, debug, hash, repo),
+    Config (clean, commit, debug, repo),
     Env,
     RepoEnv (path, src),
   )
@@ -117,7 +117,7 @@ cloneRepo env = do
     runFetch = do
       Term.putStrLn $ "Fetching " ++ repoSrcStr ++ "..."
       timeStr <- PW.withCurrentDirectory (FS.Path.toOsPath env.repo.path) $ do
-        withTiming_ $ runGit_ env [[osstr|fetch|], [osstr|--prune|]]
+        withTiming_ $ runGit_ env fetchArgs
       Term.putStrLn $ "Fetch finished: " ++ timeStr
 
     -- Our args will make a bare repo with no files e.g. git clone org/some-repo
@@ -134,6 +134,11 @@ cloneRepo env = do
         [osstr|--|],
         env.repo.src,
         repoPathOsP
+      ]
+
+    fetchArgs =
+      [ [osstr|fetch|],
+        [osstr|--prune|]
       ]
 
     repoPathOsP = FS.Path.toOsPath env.repo.path
@@ -168,12 +173,12 @@ findBranches env = do
       [ [osstr|branch|],
         [osstr|-r|],
         [osstr|--contains|],
-        env.hash
+        env.commit
       ]
 
     toText = fmap T.strip . T.lines . T.pack
 
-    hashStr = FS.OsStr.decodeLenient env.hash
+    hashStr = FS.OsStr.decodeLenient env.commit
 
 doesCommitExist ::
   ( HasCallStack,
@@ -194,7 +199,7 @@ doesCommitExist env = do
     gitArgs =
       [ [osstr|cat-file|],
         [osstr|-e|],
-        env.hash
+        env.commit
       ]
 
 runGitOut ::
