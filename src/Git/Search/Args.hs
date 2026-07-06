@@ -9,6 +9,7 @@ where
 import Data.List qualified as L
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.String (IsString (fromString))
+import Data.Text qualified as T
 import Data.Version (showVersion)
 import Effectful (Eff, (:>))
 import Effectful.Optparse.Static (Optparse)
@@ -18,7 +19,7 @@ import FileSystem.OsString qualified as FS.OsStr
 import Git.Search.Args.TH qualified as TH
 import Git.Search.Config
   ( Args,
-    Config (MkConfig, clean, commit, debug, repo),
+    Config (MkConfig, branches, clean, commit, debug, repo),
     Protocol (ProtocolHttps, ProtocolSsh),
     RepoArgs (MkRepoArgs, domain, name, protocol),
   )
@@ -78,7 +79,7 @@ getArgs = EOA.execParser parserInfoArgs
           mkExample
             [ "1. Running for the first time:",
               "",
-              "$ git-search --hash c190319 --name nixos/nixpkgs",
+              "$ git-search --commit c190319 --name nixos/nixpkgs",
               "Cloning https://github.com/nixos/nixpkgs...",
               "Clone finished: 8 minutes, 55 seconds",
               "Searching for hash f61423d...",
@@ -92,16 +93,25 @@ getArgs = EOA.execParser parserInfoArgs
           mkExample
             [ "2. Running a second time, using the cache:",
               "",
-              "$ git-search --hash c190319 --name nixos/nixpkgs",
+              "$ git-search --commit c190319 --name nixos/nixpkgs",
               "Fetching https://github.com/nixos/nixpkgs...",
               "Fetch finished: 1 second",
-              "Searching for hash f61423d...",
-              "Search finished: 5 minutes, 54 seconds",
+              "...",
               "Found branches:",
               " - origin/master",
               " - origin/nixos-unstable",
               " - origin/nixos-unstable-small",
               " ..."
+            ],
+          mkExample
+            [ "3. Filtering via --branches:",
+              "",
+              "$ git-search --commit c190319 --name nixos/nixpkgs --branches '*master *unstable'",
+              "...",
+              "Found branches:",
+              " - origin/master",
+              " - origin/nixos-unstable",
+              " - origin/nixpkgs-unstable"
             ]
         ]
 
@@ -129,13 +139,14 @@ argsParser = do
     p = do
       ~(commit, name) <- parseRequired
 
-      ~(domain, protocol) <- parseRepo
+      ~(branches, domain, protocol) <- parseRepo
 
       ~(clean, debug) <- parseMisc
 
       pure $
         MkConfig
-          { clean,
+          { branches,
+            clean,
             commit,
             debug,
             repo =
@@ -154,8 +165,9 @@ argsParser = do
 
     parseRepo =
       OA.parserOptionGroup "Repository options:" $
-        (,)
-          <$> domainParser
+        (,,)
+          <$> branchesParser
+          <*> domainParser
           <*> protocolParser
 
     parseMisc =
@@ -163,6 +175,26 @@ argsParser = do
         (,)
           <$> cleanParser
           <*> debugParser
+
+branchesParser :: Parser (Maybe [OsString])
+branchesParser =
+  OA.optional
+    $ OA.option
+      r
+    $ mconcat
+      [ OA.long "branches",
+        OA.metavar "STR",
+        mkHelp $
+          mconcat
+            [ "Filters the search via space-separated branches e.g. ",
+              "'*master *some-branch'. Generally, branches should be prefixed ",
+              "with a star to handle <remote>/<branch> syntax."
+            ]
+      ]
+  where
+    r = do
+      strs <- fmap T.strip . T.words <$> OA.str
+      traverse (FS.OsStr.encodeFail . T.unpack) strs
 
 cleanParser :: Parser Bool
 cleanParser =

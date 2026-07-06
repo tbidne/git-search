@@ -40,7 +40,7 @@ import FileSystem.Path qualified as FS.Path
 import GHC.Stack.Types (HasCallStack)
 import Git.Search.Config
   ( Args,
-    Config (clean, commit, debug, repo),
+    Config (branches, clean, commit, debug, repo),
     Env,
     RepoEnv (path, src),
   )
@@ -185,12 +185,25 @@ findBranches env = do
         Term.putStrLn $ "Search finished: " ++ timeStr
         toText <$> FS.OsStr.decodeThrowM out
   where
-    gitArgs =
+    gitArgs = case env.branches of
+      [] -> gitDefArgs
+      bs@(_ : _) -> gitBranchArgs bs
+
+    gitDefArgs =
       [ [osstr|branch|],
         [osstr|-r|],
         [osstr|--contains|],
         env.commit
       ]
+
+    gitBranchArgs bs =
+      [ [osstr|branch|],
+        [osstr|-r|],
+        [osstr|--contains|],
+        env.commit,
+        [osstr|--list|]
+      ]
+        ++ bs
 
     toText = fmap T.strip . T.lines . T.pack
 

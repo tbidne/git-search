@@ -67,9 +67,15 @@ type family RepoF p where
   RepoF ConfigPhaseArgs = RepoArgs
   RepoF ConfigPhaseEnv = RepoEnv
 
+type MaybeF :: ConfigPhase -> Type -> Type
+type family MaybeF p a where
+  MaybeF ConfigPhaseArgs a = Maybe a
+  MaybeF ConfigPhaseEnv a = a
+
 type Config :: ConfigPhase -> Type
 data Config p = MkConfig
-  { -- | Performs a clean clone of the repo. Otherwise runs 'fetch' if the
+  { branches :: MaybeF p [OsString],
+    -- | Performs a clean clone of the repo. Otherwise runs 'fetch' if the
     -- repo exists.
     clean :: Bool,
     -- | Commit hash to search.
@@ -93,14 +99,6 @@ toEnv ::
   Args ->
   Eff es Env
 toEnv args = do
-  let protocol = fromMaybe ProtocolHttps args.repo.protocol
-      domain = fromMaybe [osstr|github.com|] args.repo.domain
-      -- OsString not OsPath since we want slashes preserved.
-      prefix = case protocol of
-        ProtocolHttps -> [osstr|https://|] <> domain <> [osstr|/|]
-        ProtocolSsh -> [osstr|git@|] <> domain <> [osstr|:|]
-      src = prefix <> args.repo.name
-
   -- We get the rootOsP in two steps, rather than the direct
   --
   --   root@(MkPath rootOsP) <- ...
@@ -127,11 +125,25 @@ toEnv args = do
 
   pure $
     MkConfig
-      { clean = args.clean,
+      { branches,
+        clean = args.clean,
         commit = args.commit,
         debug = args.debug,
         repo
       }
+  where
+    branches = fromMaybe [] args.branches
+
+    protocol = fromMaybe ProtocolHttps args.repo.protocol
+
+    domain = fromMaybe [osstr|github.com|] args.repo.domain
+
+    -- OsString not OsPath since we want slashes preserved.
+    prefix = case protocol of
+      ProtocolHttps -> [osstr|https://|] <> domain <> [osstr|/|]
+      ProtocolSsh -> [osstr|git@|] <> domain <> [osstr|:|]
+
+    src = prefix <> args.repo.name
 
 getCacheDir :: (HasCallStack, PathReader :> es) => Eff es (Path Abs Dir)
 getCacheDir =
