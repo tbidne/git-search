@@ -3,17 +3,11 @@
 
 {- HLINT ignore "Use <$>" -}
 
-module Git.Search.Args.TH
+module Git.Search.Config.Args.TH
   ( gitData,
   )
 where
 
-import Control.Applicative (liftA3)
-import Control.Exception (Exception, displayException)
-import Control.Monad.IO.Class (liftIO)
-import Data.Bifunctor (first)
-import Data.Text (Text)
-import Data.Text qualified as T
 import Data.Time.Clock.POSIX (POSIXTime)
 import Data.Time.Clock.POSIX qualified as PosixTime
 import Data.Time.Format qualified as Fmt
@@ -25,9 +19,9 @@ import Development.GitRev.Typed.OsString
     IndexUsed (IdxNotUsed),
   )
 import Development.GitRev.Typed.OsString qualified as GRT
-import FileSystem.OsString (OsString, osstr)
-import FileSystem.OsString qualified as FS.OsStr
+import Git.Search.Prelude
 import Language.Haskell.TH (Code, Q)
+import System.IO qualified as IO
 import System.OsString qualified as OsStr
 import Text.Read qualified as TR
 
@@ -44,7 +38,7 @@ gitData = toCode qs
       case r of
         Right x -> pure x
         Left err -> do
-          liftIO $ putStrLn $ displayException err
+          liftIO $ IO.putStrLn $ displayException err
           pure (unknown, unknown, unknown)
 
     unknown = [osstr|UNKNOWN|]
@@ -106,8 +100,8 @@ gitDataFromEnvQ = do
     validateHash' :: Int -> OsString -> Either Text OsString
     validateHash' n str
       | strLen /= n && strLen /= dirtyLen =
-          Left $
-            mconcat
+          Left
+            $ mconcat
               [ "Expected hash length ",
                 showt n,
                 " or ",
@@ -115,12 +109,12 @@ gitDataFromEnvQ = do
                 ", received ",
                 showt strLen,
                 ": ",
-                T.pack (FS.OsStr.decodeLenient str)
+                pack (decodeLenient str)
               ]
       | hasInvalidChar str =
-          Left $
-            "Invalid char in hash: "
-              <> T.pack (FS.OsStr.decodeLenient str)
+          Left
+            $ "Invalid char in hash: "
+            <> pack (decodeLenient str)
       | otherwise = Right str
       where
         strLen = OsStr.length str
@@ -140,19 +134,19 @@ gitDataFromEnvQ = do
 displayUnixTime :: OsString -> OsString -> Either EnvError OsString
 displayUnixTime var unixTimeOsStr = do
   unixTimeStr <-
-    first (mapEx "Error decoding to String: ") $
-      FS.OsStr.decode unixTimeOsStr
+    first (mapEx "Error decoding to String: ")
+      $ decode unixTimeOsStr
 
   unixSeconds <-
-    first (\s -> mapEnvError $ "Error reading seconds: " ++ s) $
-      TR.readEither @Integer unixTimeStr
+    first (\s -> mapEnvError $ "Error reading seconds: " ++ s)
+      $ TR.readEither @Integer unixTimeStr
 
   let posixTime = fromInteger @POSIXTime unixSeconds
       utcTime = PosixTime.posixSecondsToUTCTime posixTime
       utcFormatted = Fmt.formatTime Fmt.defaultTimeLocale "%Y-%m-%d" utcTime
 
-  first (mapEx "Error endecoding to OsString: ") $
-    FS.OsStr.encode utcFormatted
+  first (mapEx "Error endecoding to OsString: ")
+    $ encode utcFormatted
   where
     mapEx :: forall e. (Exception e) => String -> e -> EnvError
     mapEx s = mapEnvError . (s ++) . displayException
@@ -162,8 +156,8 @@ displayUnixTime var unixTimeOsStr = do
       MkEnvError
         { var,
           value = Just unixTimeOsStr,
-          reason = FS.OsStr.encodeLenient str
+          reason = encodeLenient str
         }
 
 showt :: (Show a) => a -> Text
-showt = T.pack . show
+showt = pack . show

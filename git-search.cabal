@@ -28,6 +28,7 @@ common common-lang
     ApplicativeDo
     DuplicateRecordFields
     ExplicitNamespaces
+    NoImplicitPrelude
     OverloadedRecordDot
     OverloadedStrings
     PatternSynonyms
@@ -42,12 +43,18 @@ library
   autogen-modules: Paths_git_search
   exposed-modules:
     Git.Search
-    Git.Search.Args
-    Git.Search.Args.TH
     Git.Search.Config
+    Git.Search.Config.Args
+    Git.Search.Config.Args.TH
+    Git.Search.Config.Data
+    Git.Search.Config.Merged
+    Git.Search.Config.Toml
+    Git.Search.Prelude
+    Git.Search.Runner
 
   build-depends:
     , base                  >=4.14.0.0  && <4.23
+    , containers            >=0.6.3.1   && <0.9
     , effectful             >=2.5.0.0   && <2.7
     , exception-utils       ^>=0.1
     , fs-effectful          ^>=0.1
@@ -57,11 +64,12 @@ library
     , optparse-effectful    ^>=0.1
     , os-string             ^>=2.0.0
     , relative-time         ^>=0.1
-    , template-haskell      >=2.17.0.0  && <2.24
+    , template-haskell      >=2.17.0.0  && <2.25
     , terminal-effectful    ^>=0.1
     , text                  >=2.1.3     && <2.2
-    , time                  >=1.9.3     && <1.16
+    , time                  >=1.9.3     && <1.17
     , time-effectful        ^>=0.1
+    , toml-reader           >=0.2.0.0   && <0.4
 
   hs-source-dirs:  src
 
@@ -70,12 +78,7 @@ executable git-search
   main-is:        Main.hs
   build-depends:
     , base
-    , effectful
-    , fs-effectful
     , git-search
-    , optparse-effectful
-    , terminal-effectful
-    , time-effectful
 
   hs-source-dirs: app
   ghc-options:    -threaded -with-rtsopts=-N
@@ -86,19 +89,15 @@ test-suite functional
   main-is:        Main.hs
   build-depends:
     , base
-    , containers          >=0.6.3.1 && <0.8
+    , containers
     , effectful
     , effectful-utils     ^>=0.1
     , env-guard           ^>=0.2
-    , exception-utils
-    , fs-effectful
     , git-search
-    , optparse-effectful
     , tasty               >=1.1.0.3 && <1.6
     , tasty-hunit         >=0.9     && <0.11
     , terminal-effectful
     , text
-    , time-effectful
 
   hs-source-dirs: test/functional
   ghc-options:    -threaded -with-rtsopts=-N

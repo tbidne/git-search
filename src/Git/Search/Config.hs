@@ -2,93 +2,27 @@
 {-# LANGUAGE QuasiQuotes #-}
 
 module Git.Search.Config
-  ( -- * Config
-    Config (..),
-
-    -- ** CLI args
-    RepoArgs (..),
-    Protocol (..),
-
-    -- ** Env
-    RepoEnv (..),
+  ( Env (..),
     toEnv,
-
-    -- * Aliases
-    Args,
-    Env,
-
-    -- * Phases
-    ConfigPhase (..),
   )
 where
 
-import Data.Kind (Type)
-import Data.Maybe (fromMaybe)
-import Effectful (Eff, (:>))
-import Effectful.FileSystem.PathReader.Static (PathReader)
 import Effectful.FileSystem.PathReader.Static qualified as PR
-import Effectful.FileSystem.PathWriter.Static (PathWriter)
 import Effectful.FileSystem.PathWriter.Static qualified as PW
-import FileSystem.OsString (OsString, osstr)
-#if MIN_VERSION_GLASGOW_HASKELL(9, 14, 1, 0)
-import FileSystem.Path (Abs, Dir, Path, (<</>>), data MkPath)
-#else
-import FileSystem.Path (Abs, Dir, Path, (<</>>), pattern MkPath)
-#endif
 import FileSystem.Path qualified as FS.Path
-import GHC.Stack.Types (HasCallStack)
+import Git.Search.Config.Args (Args)
+import Git.Search.Config.Data
+  ( Config (MkConfig, branches, clean, commit, debug, repo),
+    ConfigPhase (ConfigPhaseEnv),
+    Protocol (ProtocolHttps, ProtocolSsh),
+    RepoConfig (domain, name, protocol),
+    RepoEnv (MkRepoEnv, path, src),
+  )
+import Git.Search.Config.Merged (MergedConfig (coreConfig), mergeConfig)
+import Git.Search.Config.Toml (Toml)
+import Git.Search.Prelude
 
-data ConfigPhase
-  = ConfigPhaseArgs
-  | ConfigPhaseEnv
-
-data Protocol
-  = ProtocolHttps
-  | ProtocolSsh
-
-data RepoArgs = MkRepoArgs
-  { -- | Domain e.g. github.com
-    domain :: Maybe OsString,
-    -- | Repo name e.g. org/repo
-    name :: OsString,
-    -- | Protocol e.g. https
-    protocol :: Maybe Protocol
-  }
-
-data RepoEnv = MkRepoEnv
-  { -- | Path to cloned repo e.g. ~/.cache/git-search/org/repo
-    path :: Path Abs Dir,
-    -- | Full source e.g. https://github.com/org/repo
-    src :: OsString
-  }
-
-type RepoF :: ConfigPhase -> Type
-type family RepoF p where
-  RepoF ConfigPhaseArgs = RepoArgs
-  RepoF ConfigPhaseEnv = RepoEnv
-
-type MaybeF :: ConfigPhase -> Type -> Type
-type family MaybeF p a where
-  MaybeF ConfigPhaseArgs a = Maybe a
-  MaybeF ConfigPhaseEnv a = a
-
-type Config :: ConfigPhase -> Type
-data Config p = MkConfig
-  { branches :: MaybeF p [OsString],
-    -- | Performs a clean clone of the repo. Otherwise runs 'fetch' if the
-    -- repo exists.
-    clean :: Bool,
-    -- | Commit hash to search.
-    commit :: OsString,
-    -- | Additional debug logging.
-    debug :: Bool,
-    -- | Repo params.
-    repo :: RepoF p
-  }
-
-type Args = Config ConfigPhaseArgs
-
-type Env = Config ConfigPhaseEnv
+newtype Env = MkEnv {coreConfig :: Config ConfigPhaseEnv}
 
 -- | Evolves the CLI Args to runtime Env.
 toEnv ::
@@ -97,8 +31,18 @@ toEnv ::
     PathWriter :> es
   ) =>
   Args ->
+  Maybe Toml ->
   Eff es Env
-toEnv args = do
+toEnv args mToml = do
+  merged <- mergeConfig args mToml
+
+  let -- OsString not OsPath since we want slashes preserved.
+      prefix = case merged.coreConfig.repo.protocol of
+        ProtocolHttps -> [osstr|https://|] <> merged.coreConfig.repo.domain <> [osstr|/|]
+        ProtocolSsh -> [osstr|git@|] <> merged.coreConfig.repo.domain <> [osstr|:|]
+
+      src = prefix <> merged.coreConfig.repo.name
+
   -- We get the rootOsP in two steps, rather than the direct
   --
   --   root@(MkPath rootOsP) <- ...
@@ -115,7 +59,7 @@ toEnv args = do
   -- take care of creating the repo directory if necessary.
   PW.createDirectoryIfMissing True rootOsP
 
-  pathRel <- FS.Path.parseRelDir args.repo.name
+  pathRel <- FS.Path.parseRelDir merged.coreConfig.repo.name
   let path = root <</>> pathRel
       repo =
         MkRepoEnv
@@ -123,27 +67,17 @@ toEnv args = do
             src
           }
 
-  pure $
-    MkConfig
-      { branches,
-        clean = args.clean,
-        commit = args.commit,
-        debug = args.debug,
-        repo
+  pure
+    $ MkEnv
+      { coreConfig =
+          MkConfig
+            { branches = merged.coreConfig.branches,
+              clean = merged.coreConfig.clean,
+              commit = merged.coreConfig.commit,
+              debug = merged.coreConfig.debug,
+              repo
+            }
       }
-  where
-    branches = fromMaybe [] args.branches
-
-    protocol = fromMaybe ProtocolHttps args.repo.protocol
-
-    domain = fromMaybe [osstr|github.com|] args.repo.domain
-
-    -- OsString not OsPath since we want slashes preserved.
-    prefix = case protocol of
-      ProtocolHttps -> [osstr|https://|] <> domain <> [osstr|/|]
-      ProtocolSsh -> [osstr|git@|] <> domain <> [osstr|:|]
-
-    src = prefix <> args.repo.name
 
 getCacheDir :: (HasCallStack, PathReader :> es) => Eff es (Path Abs Dir)
 getCacheDir =

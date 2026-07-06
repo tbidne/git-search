@@ -1,0 +1,42 @@
+# All keys are overridden by CLI args.
+
+# Repository configuration.
+[repository]
+
+# Commit for which to search. Generally this will be supplied on the CLI,
+# since there are not many situations where we want the same commit fixed in
+# the config. Still, there may be some situations where a default commit
+# makes sense.
+commit = 'c190319'
+
+# Domain to use.
+domain = 'github.com'
+
+# Repo name.
+name = 'nixos/nixpkgs'
+
+# https or ssh.
+protocol = 'https'
+
+# Map of names to branch filters. If the given name (either toml or CLI args)
+# matches an entry in the map, then we filter with its branches.
+[[branchMap]]
+name = 'nixos/nixpkgs'
+branches = [ '*master', '*unstable*' ]
+
+[[branchMap]]
+name = 'org/repo'
+branches = [
+  'origin/master',
+  'origin/staging'
+]
+
+# Miscellaneous options.
+[miscellaneous]
+
+# Always performs a clean clone. Not recommended for performance. Can be
+# 'on' or 'off'.
+clean = 'off'
+
+# Turns on debug logs. Can be 'on' or 'off'.
+debug = 'on'

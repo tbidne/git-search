@@ -1,30 +1,28 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Git.Search.Args
-  ( getArgs,
+module Git.Search.Config.Args
+  ( Args (..),
+    getArgs,
   )
 where
 
 import Data.List qualified as L
-import Data.List.NonEmpty (NonEmpty ((:|)))
-import Data.String (IsString (fromString))
 import Data.Text qualified as T
 import Data.Version (showVersion)
-import Effectful (Eff, (:>))
-import Effectful.Optparse.Static (Optparse)
 import Effectful.Optparse.Static qualified as EOA
-import FileSystem.OsString (OsString)
-import FileSystem.OsString qualified as FS.OsStr
-import Git.Search.Args.TH qualified as TH
-import Git.Search.Config
-  ( Args,
-    Config (MkConfig, branches, clean, commit, debug, repo),
+import Git.Search.Config.Args.TH qualified as TH
+import Git.Search.Config.Data
+  ( Config (MkConfig, branches, clean, commit, debug, repo),
+    ConfigPhase (ConfigPhaseArgs),
     Protocol (ProtocolHttps, ProtocolSsh),
-    RepoArgs (MkRepoArgs, domain, name, protocol),
+    RepoConfig (MkRepoConfig, domain, name, protocol),
+    WithDisabled (Disabled, With),
   )
+import Git.Search.Prelude
 import Options.Applicative
   ( Mod,
+    OptionFields,
     Parser,
     ParserInfo
       ( ParserInfo,
@@ -47,6 +45,11 @@ import Options.Applicative.Types (ArgPolicy (Intersperse))
 import Paths_git_search qualified as Paths
 import System.Info qualified as Info
 
+data Args = MkArgs
+  { config :: Maybe (WithDisabled OsPath),
+    coreConfig :: Config ConfigPhaseArgs
+  }
+
 getArgs :: (Optparse :> es) => Eff es Args
 getArgs = EOA.execParser parserInfoArgs
   where
@@ -65,13 +68,13 @@ getArgs = EOA.execParser parserInfoArgs
 
     desc =
       Chunk.vsepChunks
-        [ Chunk.paragraph $
-            mconcat
+        [ Chunk.paragraph
+            $ mconcat
               [ "Given a git repository and commit hash, returns a list of ",
                 "branches containing that hash."
               ],
-          Chunk.paragraph $
-            mconcat
+          Chunk.paragraph
+            $ mconcat
               [ "Initially, the git repository is cloned and cached. Subsequent ",
                 "searches invoke 'fetch' for performance."
               ],
@@ -84,7 +87,7 @@ getArgs = EOA.execParser parserInfoArgs
               "Clone finished: 8 minutes, 55 seconds",
               "Searching for hash f61423d...",
               "Search finished: 3 minutes, 57 seconds",
-              "Found branches:",
+              "Found 14 branches:",
               " - origin/master",
               " - origin/nixos-unstable",
               " - origin/nixos-unstable-small",
@@ -97,7 +100,7 @@ getArgs = EOA.execParser parserInfoArgs
               "Fetching https://github.com/nixos/nixpkgs...",
               "Fetch finished: 1 second",
               "...",
-              "Found branches:",
+              "Found 14 branches:",
               " - origin/master",
               " - origin/nixos-unstable",
               " - origin/nixos-unstable-small",
@@ -108,7 +111,7 @@ getArgs = EOA.execParser parserInfoArgs
               "",
               "$ git-search --commit c190319 --name nixos/nixpkgs --branches '*master *unstable'",
               "...",
-              "Found branches:",
+              "Found 3 branches:",
               " - origin/master",
               " - origin/nixos-unstable",
               " - origin/nixpkgs-unstable"
@@ -137,46 +140,45 @@ argsParser = do
     <**> OA.helper
   where
     p = do
-      ~(commit, name) <- parseRequired
+      ~(branches, commit, domain, name, protocol) <- parseRepo
 
-      ~(branches, domain, protocol) <- parseRepo
+      ~(clean, config, debug) <- parseMisc
 
-      ~(clean, debug) <- parseMisc
-
-      pure $
-        MkConfig
-          { branches,
-            clean,
-            commit,
-            debug,
-            repo =
-              MkRepoArgs
-                { domain,
-                  name,
-                  protocol
+      pure
+        $ MkArgs
+          { config,
+            coreConfig =
+              MkConfig
+                { branches,
+                  clean,
+                  commit,
+                  debug,
+                  repo =
+                    MkRepoConfig
+                      { domain,
+                        name,
+                        protocol
+                      }
                 }
           }
 
-    parseRequired =
-      OA.parserOptionGroup "Required fields:" $
-        (,)
-          <$> commitParser
-          <*> nameParser
-
     parseRepo =
-      OA.parserOptionGroup "Repository options:" $
-        (,,)
-          <$> branchesParser
-          <*> domainParser
-          <*> protocolParser
+      OA.parserOptionGroup "Repository options:"
+        $ (,,,,)
+        <$> branchesParser
+        <*> commitParser
+        <*> domainParser
+        <*> nameParser
+        <*> protocolParser
 
     parseMisc =
-      OA.parserOptionGroup "Miscellaneous options:" $
-        (,)
-          <$> cleanParser
-          <*> debugParser
+      OA.parserOptionGroup "Miscellaneous options:"
+        $ (,,)
+        <$> cleanParser
+        <*> configParser
+        <*> debugParser
 
-branchesParser :: Parser (Maybe [OsString])
+branchesParser :: Parser (Maybe (WithDisabled [OsString]))
 branchesParser =
   OA.optional
     $ OA.option
@@ -184,35 +186,60 @@ branchesParser =
     $ mconcat
       [ OA.long "branches",
         OA.metavar "STR",
-        mkHelp $
-          mconcat
+        mkHelp
+          $ mconcat
             [ "Filters the search via space-separated branches e.g. ",
-              "'*master *some-branch'. Generally, branches should be prefixed ",
-              "with a star to handle <remote>/<branch> syntax."
+              "'*master *some-branch'. Note that the searched branches includes ",
+              "the remote (origin), so a prefix '*' may be desired."
             ]
       ]
   where
     r = do
-      strs <- fmap T.strip . T.words <$> OA.str
-      traverse (FS.OsStr.encodeFail . T.unpack) strs
+      s <- OA.str
+      case s of
+        "off" -> pure Disabled
+        other -> do
+          let strs = fmap T.strip . T.words $ other
+          With <$> traverse (encodeFail . unpack) strs
 
-cleanParser :: Parser Bool
+cleanParser :: Parser (Maybe Bool)
 cleanParser =
-  OA.switch $
-    mconcat
+  switchParser
+    $ mconcat
       [ OA.long "clean",
-        mkHelp $
-          mconcat
+        mkHelp
+          $ mconcat
             [ "Performs a clean clone of the repo, overwriting any previous ",
               "clones. Otherwise runs 'fetch' if the repo has been ",
               "previously cloned."
             ]
       ]
 
-debugParser :: Parser Bool
+configParser :: Parser (Maybe (WithDisabled OsPath))
+configParser =
+  OA.optional
+    $ OA.option
+      r
+    $ mconcat
+      [ OA.long "config",
+        OA.metavar "(PATH | off)",
+        mkHelp
+          $ mconcat
+            [ "Path to TOML config. We also look in XDG config e.g. ",
+              "~/.config/git-search/config.toml."
+            ]
+      ]
+  where
+    r = do
+      s <- OA.str
+      case s of
+        "off" -> pure Disabled
+        other -> With <$> encodeValidFail other
+
+debugParser :: Parser (Maybe Bool)
 debugParser =
-  OA.switch $
-    mconcat
+  switchParser
+    $ mconcat
       [ OA.long "debug",
         mkHelpNoLine "Enables additional logging."
       ]
@@ -228,36 +255,38 @@ domainParser =
         mkHelp "Repository domain. Defaults to github.com."
       ]
   where
-    r = OA.str >>= FS.OsStr.encodeFail
+    r = OA.str >>= encodeFail
 
-commitParser :: Parser OsString
+commitParser :: Parser (Maybe OsString)
 commitParser =
-  OA.option
-    r
+  OA.optional
+    $ OA.option
+      r
     $ mconcat
       [ OA.long "commit",
         OA.metavar "HASH",
         mkHelp "Commit hash for which we want to search."
       ]
   where
-    r = OA.str >>= FS.OsStr.encodeFail
+    r = OA.str >>= encodeFail
 
-nameParser :: Parser OsString
+nameParser :: Parser (Maybe OsString)
 nameParser =
-  OA.option
-    r
+  OA.optional
+    $ OA.option
+      r
     $ mconcat
       [ OA.long "name",
         OA.metavar "STR",
-        mkHelpNoLine $
-          mconcat
+        mkHelp
+          $ mconcat
             [ "Repository name. This should be the organization and repo ",
               "following github.com e.g. nixos/nixpkgs for ",
               "github.com/nixos/nixpkgs. Mutually exclusive with --repo."
             ]
       ]
   where
-    r = OA.str >>= FS.OsStr.encodeFail
+    r = OA.str >>= encodeFail
 
 protocolParser :: Parser (Maybe Protocol)
 protocolParser =
@@ -285,7 +314,7 @@ versShort =
     [ "Git-search: ",
       showVersion Paths.version,
       " (",
-      FS.OsStr.decodeLenient versionInfo.gitShortHash,
+      decodeLenient versionInfo.gitShortHash,
       ")"
     ]
 
@@ -294,8 +323,8 @@ versLong =
   L.intercalate
     "\n"
     [ "Git-search: " <> showVersion Paths.version,
-      " - Git revision: " <> FS.OsStr.decodeLenient versionInfo.gitHash,
-      " - Commit date:  " <> FS.OsStr.decodeLenient versionInfo.gitCommitDate,
+      " - Git revision: " <> decodeLenient versionInfo.gitHash,
+      " - Commit date:  " <> decodeLenient versionInfo.gitCommitDate,
       " - GHC version:  " <> versionInfo.ghc
     ]
 
@@ -329,3 +358,18 @@ mkHelpNoLine =
   OA.helpDoc
     . Chunk.unChunk
     . Chunk.paragraph
+
+switchParser :: Mod OptionFields Bool -> Parser (Maybe Bool)
+switchParser mods =
+  OA.optional
+    $ OA.option
+      r
+      mods'
+  where
+    r =
+      OA.str >>= \case
+        "off" -> pure False
+        "on" -> pure True
+        other -> fail $ "Unrecognized: " ++ other
+
+    mods' = mods <> OA.metavar "(on | off)"

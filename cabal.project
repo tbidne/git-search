@@ -1,6 +1,6 @@
 packages: .
 
-package git-search
+package *
   ghc-options:
     -Wall -Wcompat
     -Widentities
@@ -10,13 +10,13 @@ package git-search
     -Wmissing-export-lists
     -Wmissing-exported-signatures
     -Wmissing-home-modules
-    -Wmissing-import-lists
     -Wpartial-fields
     -Wprepositive-qualified-module
     -Wredundant-constraints
     -Wunused-binds
     -Wunused-packages
     -Wunused-type-patterns
+    -Wno-missing-import-lists
     -Wno-unticked-promoted-constructors
 
 source-repository-package
