@@ -32,7 +32,7 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/tbidne/effectful-libs.git
-  tag: dff37d44379c34ff70f3557238c8d0dd8ef0e5b7
+  tag: e7fed7b3d510699d58f9ad8192f423c8bf5b6b77
   subdir:
     lib/effectful-utils
     lib/environment-effectful
@@ -44,7 +44,7 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/tbidne/exception-utils.git
-  tag: c6a96891751c0ff55120d40aae4e4a30505c3a8a
+  tag: a427d344663e8d9e64d56d576ebd53bf2240b9bd
 
 source-repository-package
   type: git

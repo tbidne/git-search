@@ -248,33 +248,29 @@ domainParser :: Parser (Maybe OsString)
 domainParser =
   OA.optional
     $ OA.option
-      r
+      osString
     $ mconcat
       [ OA.long "domain",
         OA.metavar "STR",
         mkHelp "Repository domain. Defaults to github.com."
       ]
-  where
-    r = OA.str >>= encodeFail
 
 commitParser :: Parser (Maybe OsString)
 commitParser =
   OA.optional
     $ OA.option
-      r
+      osString
     $ mconcat
       [ OA.long "commit",
         OA.metavar "HASH",
         mkHelp "Commit hash for which we want to search."
       ]
-  where
-    r = OA.str >>= encodeFail
 
 nameParser :: Parser (Maybe OsString)
 nameParser =
   OA.optional
     $ OA.option
-      r
+      osString
     $ mconcat
       [ OA.long "name",
         OA.metavar "STR",
@@ -285,8 +281,6 @@ nameParser =
               "github.com/nixos/nixpkgs. Mutually exclusive with --repo."
             ]
       ]
-  where
-    r = OA.str >>= encodeFail
 
 protocolParser :: Parser (Maybe Protocol)
 protocolParser =

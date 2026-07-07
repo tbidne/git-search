@@ -18,7 +18,7 @@ import Control.Applicative as X
   )
 import Control.Category as X ((>>>))
 import Control.Exception as X (Exception, displayException)
-import Control.Exception.Utils as X (throwString, trySync)
+import Control.Exception.Utils as X (throwString, trySync, throwM)
 import Control.Monad as X
   ( Monad,
     MonadFail,
@@ -59,7 +59,7 @@ import Effectful.FileSystem.HandleReader.Static as X (HandleReader, runHandleRea
 import Effectful.FileSystem.HandleWriter.Static as X (HandleWriter, runHandleWriter)
 import Effectful.FileSystem.PathReader.Static as X (PathReader, runPathReader)
 import Effectful.FileSystem.PathWriter.Static as X (PathWriter, runPathWriter)
-import Effectful.Optparse.Static as X (Optparse, runOptparse)
+import Effectful.Optparse.Static as X (Optparse, runOptparse, osString)
 import Effectful.Process as X (Process, runProcess)
 import Effectful.Terminal.Dynamic as X
   ( Terminal,

@@ -84,7 +84,7 @@ getToml args = do
       contents <- FR.readFileUtf8ThrowM path
       case TOML.decode contents of
         Right t -> pure t
-        Left err -> Ex.throwIO err
+        Left err -> throwM err
 
 withHiddenInput ::
   ( HasCallStack,
