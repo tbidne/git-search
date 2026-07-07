@@ -15,10 +15,12 @@ import Effectful.FileSystem.HandleWriter.Dynamic qualified as HW
 import Effectful.FileSystem.PathReader.Static qualified as PR
 import Git.Search qualified
 import Git.Search.Config qualified as Config
-import Git.Search.Config.Args (Args (command))
+import Git.Search.Config.Args (Args)
 import Git.Search.Config.Args qualified
-import Git.Search.Config.Command (Command (SearchCommit))
-import Git.Search.Config.Data (WithDisabled (Disabled, With))
+import Git.Search.Config.Data
+  ( Command (SearchCommit),
+    WithDisabled (Disabled, With),
+  )
 import Git.Search.Config.Toml (Toml)
 import Git.Search.Prelude
 import System.IO qualified as IO
@@ -42,10 +44,10 @@ runSearch = withHiddenInput $ do
   args <- Git.Search.Config.Args.getArgs
   mToml <- getToml args
 
-  env <- Config.toEnv args mToml
+  (env, cmd) <- Config.toEnv args mToml
 
-  let cmdAction = case args.command of
-        SearchCommit commit -> Git.Search.searchCommit env commit
+  let cmdAction = case cmd of
+        SearchCommit cmdArgs -> Git.Search.searchCommit env cmdArgs
 
   branches <- race' cmdAction drainStdinLoop
 

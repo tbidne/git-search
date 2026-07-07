@@ -12,9 +12,10 @@ import Data.Text qualified as T
 import Data.Version (showVersion)
 import Effectful.Optparse.Static qualified as EOA
 import Git.Search.Config.Args.TH qualified as TH
-import Git.Search.Config.Command (Command (SearchCommit))
 import Git.Search.Config.Data
-  ( Config (MkConfig, branches, clean, debug, repo),
+  ( Command (SearchCommit),
+    Commit (MkCommit),
+    Config (MkConfig, branches, clean, debug, repo),
     ConfigPhase (ConfigPhaseArgs),
     Protocol (ProtocolHttps, ProtocolSsh),
     RepoConfig (MkRepoConfig, domain, name, protocol),
@@ -49,7 +50,7 @@ import Paths_git_search qualified as Paths
 import System.Info qualified as Info
 
 data Args = MkArgs
-  { command :: Command,
+  { command :: Command ConfigPhaseArgs,
     config :: Maybe (WithDisabled OsPath),
     coreConfig :: Config ConfigPhaseArgs
   }
@@ -220,7 +221,7 @@ cleanParser =
             ]
       ]
 
-commandParser :: Parser Command
+commandParser :: Parser (Command ConfigPhaseArgs)
 commandParser =
   OA.hsubparser
     ( mconcat
@@ -271,10 +272,10 @@ domainParser =
         mkHelp "Repository domain. Defaults to github.com."
       ]
 
-commitParser :: Parser OsString
+commitParser :: Parser Commit
 commitParser =
   OA.argument
-    osString
+    (MkCommit <$> osString)
     $ mconcat
       [ OA.metavar "HASH",
         mkHelp "Commit hash for which we want to search."

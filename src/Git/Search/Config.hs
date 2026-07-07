@@ -10,13 +10,15 @@ where
 import Effectful.FileSystem.PathReader.Static qualified as PR
 import Effectful.FileSystem.PathWriter.Static qualified as PW
 import FileSystem.Path qualified as FS.Path
-import Git.Search.Config.Args (Args)
+import Git.Search.Config.Args (Args (command))
 import Git.Search.Config.Data
-  ( Config (MkConfig, branches, clean, debug, repo),
+  ( Command (SearchCommit),
+    Config (MkConfig, branches, clean, debug, repo),
     ConfigPhase (ConfigPhaseEnv),
     Protocol (ProtocolHttps, ProtocolSsh),
     RepoConfig (domain, name, protocol),
-    RepoEnv (MkRepoEnv, path, src),
+    RepoPath (MkRepoPath),
+    RepoSrc (MkRepoSrc),
   )
 import Git.Search.Config.Merged (MergedConfig (coreConfig), mergeConfig)
 import Git.Search.Config.Toml (Toml)
@@ -32,7 +34,7 @@ toEnv ::
   ) =>
   Args ->
   Maybe Toml ->
-  Eff es Env
+  Eff es (Env, Command ConfigPhaseEnv)
 toEnv args mToml = do
   merged <- mergeConfig args mToml
 
@@ -61,22 +63,24 @@ toEnv args mToml = do
 
   pathRel <- FS.Path.parseRelDir merged.coreConfig.repo.name
   let path = root <</>> pathRel
-      repo =
-        MkRepoEnv
-          { path,
-            src
-          }
+      repoPath = MkRepoPath path
+      repoSrc = MkRepoSrc src
+
+  let command = case args.command of
+        SearchCommit commit -> SearchCommit (commit, repoPath, repoSrc)
 
   pure
-    $ MkEnv
-      { coreConfig =
-          MkConfig
-            { branches = merged.coreConfig.branches,
-              clean = merged.coreConfig.clean,
-              debug = merged.coreConfig.debug,
-              repo
-            }
-      }
+    ( MkEnv
+        { coreConfig =
+            MkConfig
+              { branches = merged.coreConfig.branches,
+                clean = merged.coreConfig.clean,
+                debug = merged.coreConfig.debug,
+                repo = ()
+              }
+        },
+      command
+    )
 
 getCacheDir :: (HasCallStack, PathReader :> es) => Eff es (Path Abs Dir)
 getCacheDir =

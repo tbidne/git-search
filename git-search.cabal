@@ -46,7 +46,6 @@ library
     Git.Search.Config
     Git.Search.Config.Args
     Git.Search.Config.Args.TH
-    Git.Search.Config.Command
     Git.Search.Config.Data
     Git.Search.Config.Merged
     Git.Search.Config.Toml

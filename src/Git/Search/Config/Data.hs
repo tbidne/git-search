@@ -3,9 +3,14 @@ module Git.Search.Config.Data
     Config (..),
     RepoConfig (..),
     Protocol (..),
+    Commit (..),
+
+    -- * Command
+    Command (..),
 
     -- ** Env
-    RepoEnv (..),
+    RepoPath (..),
+    RepoSrc (..),
 
     -- * Phases
     ConfigPhase (..),
@@ -70,19 +75,32 @@ data RepoConfig p = MkRepoConfig
     protocol :: RepoConfigF p Protocol
   }
 
-data RepoEnv = MkRepoEnv
-  { -- | Path to cloned repo e.g. ~/.cache/git-search/org/repo
-    path :: Path Abs Dir,
-    -- | Full source e.g. https://github.com/org/repo
-    src :: OsString
-  }
+-- | Commit hash.
+newtype Commit = MkCommit {unCommit :: OsString}
+
+-- | Repository path on the file-system.
+newtype RepoPath = MkRepoPath {unRepoPath :: Path Abs Dir}
+
+-- | Repository remote source i.e. a URL.
+newtype RepoSrc = MkRepoSrc {unRepoSrc :: OsString}
+
+type SearchCommitF :: ConfigPhase -> Type
+type family SearchCommitF p where
+  SearchCommitF ConfigPhaseArgs = Commit
+  SearchCommitF ConfigPhaseEnv = (Commit, RepoPath, RepoSrc)
+
+-- | Command to run.
+type Command :: ConfigPhase -> Type
+newtype Command p
+  = -- | Searches for the commit.
+    SearchCommit (SearchCommitF p)
 
 type RepoF :: ConfigPhase -> Type
 type family RepoF p where
   RepoF ConfigPhaseArgs = RepoConfig ConfigPhaseArgs
   RepoF ConfigPhaseToml = RepoConfig ConfigPhaseToml
   RepoF ConfigPhaseMerged = RepoConfig ConfigPhaseMerged
-  RepoF ConfigPhaseEnv = RepoEnv
+  RepoF ConfigPhaseEnv = ()
 
 type BranchesF :: ConfigPhase -> Type
 type family BranchesF p where
@@ -100,7 +118,8 @@ type family ConfigF p a where
 
 type Config :: ConfigPhase -> Type
 data Config p = MkConfig
-  { branches :: BranchesF p,
+  { -- | Branch filters.
+    branches :: BranchesF p,
     -- | Performs a clean clone of the repo. Otherwise runs 'fetch' if the
     -- repo exists.
     clean :: ConfigF p Bool,

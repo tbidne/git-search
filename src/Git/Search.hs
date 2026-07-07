@@ -18,8 +18,10 @@ import Git.Search.Config
   ( Env (coreConfig),
   )
 import Git.Search.Config.Data
-  ( Config (branches, clean, debug, repo),
-    RepoEnv (path, src),
+  ( Commit (unCommit),
+    Config (branches, clean, debug),
+    RepoPath (unRepoPath),
+    RepoSrc (unRepoSrc),
   )
 import Git.Search.Prelude
 
@@ -33,11 +35,11 @@ searchCommit ::
     Time :> es
   ) =>
   Env ->
-  OsString ->
+  (Commit, RepoPath, RepoSrc) ->
   Eff es [Text]
-searchCommit env commit = do
-  cloneRepo env
-  findBranches env commit
+searchCommit env (commit, repoPath, repoSrc) = do
+  cloneRepo env repoPath repoSrc
+  findBranches env commit repoPath
 
 cloneRepo ::
   ( HasCallStack,
@@ -48,8 +50,10 @@ cloneRepo ::
     Time :> es
   ) =>
   Env ->
+  RepoPath ->
+  RepoSrc ->
   Eff es ()
-cloneRepo env = do
+cloneRepo env repoPath repoSrc = do
   when env.coreConfig.debug $ do
     putStrLn $ "Clone destination: " <> repoPathStr
 
@@ -76,7 +80,7 @@ cloneRepo env = do
 
     runFetch = do
       putStrLn $ "Fetching " ++ repoSrcStr ++ "..."
-      timeStr <- PW.withCurrentDirectory (toOsPath env.coreConfig.repo.path) $ do
+      timeStr <- PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
         withTiming_ $ runGit_ env fetchArgs
       putStrLn $ "Fetch finished: " ++ timeStr
 
@@ -92,7 +96,7 @@ cloneRepo env = do
         [osstr|--no-checkout|],
         [osstr|--filter=blob:none|],
         [osstr|--|],
-        env.coreConfig.repo.src,
+        repoSrc.unRepoSrc,
         repoPathOsP
       ]
 
@@ -101,9 +105,9 @@ cloneRepo env = do
         [osstr|--prune|]
       ]
 
-    repoPathOsP = toOsPath env.coreConfig.repo.path
+    repoPathOsP = toOsPath repoPath.unRepoPath
     repoPathStr = decodeLenient repoPathOsP
-    repoSrcStr = decodeLenient env.coreConfig.repo.src
+    repoSrcStr = decodeLenient repoSrc.unRepoSrc
 
 findBranches ::
   ( HasCallStack,
@@ -113,19 +117,20 @@ findBranches ::
     Time :> es
   ) =>
   Env ->
-  OsString ->
+  Commit ->
+  RepoPath ->
   Eff es [Text]
-findBranches env commit = do
+findBranches env commit repoPath = do
   putStrLn $ "Searching for hash " ++ hashStr ++ "..."
 
-  commitExists <- doesCommitExist env commit
+  commitExists <- doesCommitExist env commit repoPath
 
   if not commitExists
     then do
       putStrLn "Commit does not exist."
       pure []
     else do
-      PW.withCurrentDirectory (toOsPath env.coreConfig.repo.path) $ do
+      PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
         (timeStr, out) <- withTiming $ runGitOut env gitArgs
         putStrLn $ "Search finished: " ++ timeStr
         toText <$> decodeThrowM out
@@ -138,21 +143,21 @@ findBranches env commit = do
       [ [osstr|branch|],
         [osstr|-r|],
         [osstr|--contains|],
-        commit
+        commit.unCommit
       ]
 
     gitBranchArgs bs =
       [ [osstr|branch|],
         [osstr|-r|],
         [osstr|--contains|],
-        commit,
+        commit.unCommit,
         [osstr|--list|]
       ]
         ++ bs
 
     toText = fmap T.strip . T.lines . pack
 
-    hashStr = decodeLenient commit
+    hashStr = decodeLenient commit.unCommit
 
 doesCommitExist ::
   ( HasCallStack,
@@ -161,11 +166,12 @@ doesCommitExist ::
     Terminal :> es
   ) =>
   Env ->
-  OsString ->
+  Commit ->
+  RepoPath ->
   Eff es Bool
-doesCommitExist env commit = do
+doesCommitExist env commit repoPath = do
   (ec, _, _) <-
-    PW.withCurrentDirectory (toOsPath env.coreConfig.repo.path)
+    PW.withCurrentDirectory (repoPathToOsP repoPath)
       $ runGit env gitArgs
   pure $ case ec of
     ExitSuccess -> True
@@ -174,7 +180,7 @@ doesCommitExist env commit = do
     gitArgs =
       [ [osstr|cat-file|],
         [osstr|-e|],
-        commit
+        commit.unCommit
       ]
 
 runGitOut ::
@@ -307,3 +313,6 @@ withTiming m = do
 
 withTiming_ :: (HasCallStack, Time :> es) => Eff es a -> Eff es String
 withTiming_ = fmap fst . withTiming
+
+repoPathToOsP :: RepoPath -> OsPath
+repoPathToOsP = toOsPath . (.unRepoPath)
