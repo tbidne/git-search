@@ -6,108 +6,142 @@ import Control.Exception (throwIO)
 import Data.IORef (IORef)
 import Data.IORef qualified as IORef
 import Data.List qualified as L
+import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text qualified as T
 import Effectful.Dispatch.Dynamic (interpret_)
+import Effectful.Dispatch.Dynamic qualified as Eff.Dyn
 import Effectful.Dynamic.Utils (showEffectCons)
+import Effectful.FileSystem.HandleWriter.Dynamic qualified as HW
 import Effectful.Terminal.Dynamic qualified as Term
 import GHC.Clock qualified as CC
 import Git.Search.Prelude
 import Git.Search.Runner qualified
 import System.Environment qualified as Env
-import System.Environment.Guard (ExpectEnv (ExpectEnvSet), guardOrElse')
 import System.IO qualified as IO
-import Test.Tasty (TestTree, testGroup)
+import Test.Tasty (DependencyType (AllSucceed), TestTree, dependentTestGroup)
 import Test.Tasty qualified as Tasty
 import Test.Tasty.HUnit (assertBool, testCase, (@=?))
 
 main :: IO ()
-main = guardOrElse' "TEST_FUNCTIONAL" ExpectEnvSet runTests dontRun
-  where
-    runTests =
-      Tasty.defaultMain
-        $ testGroup
-          "Functional"
-          [ testSearchNixpkgs
-          ]
+main = do
+  Env.lookupEnv "TEST_FUNCTIONAL" >>= \case
+    Nothing -> dontRun
+    Just cmd -> do
+      cloneTimeRef <- IORef.newIORef Nothing
 
+      case T.toLower (T.strip (pack cmd)) of
+        "clone" -> do
+          runTests
+            [ testNixpkgsCommitClone cloneTimeRef,
+              testNixpkgsCommitFetch cloneTimeRef,
+              testNixpkgsCommitBranches
+            ]
+        _ ->
+          runTests
+            [ testNixpkgsCommitFetch cloneTimeRef,
+              testNixpkgsCommitBranches
+            ]
+  where
     dontRun = IO.putStrLn "*** Functional tests disabled. Enable with TEST_FUNCTIONAL=1 ***"
 
-testSearchNixpkgs :: TestTree
-testSearchNixpkgs = testCase "Finds branches in nixos/nixpkgs" $ do
-  -- 1st run
-  start1 <- CC.getMonotonicTime
-  results1 <- Set.fromList <$> runSearch args1
-  end1 <- CC.getMonotonicTime
-  assertResults results1
+    runTests tests =
+      Tasty.defaultMain
+        $ dependentTestGroup
+          "Functional"
+          AllSucceed
+          tests
 
-  -- 2nd run
-  start2 <- CC.getMonotonicTime
-  results2 <- Set.fromList <$> runSearch (mkArgs [osp|off|])
-  end2 <- CC.getMonotonicTime
-  assertResults results2
+testNixpkgsCommitClone :: IORef (Maybe Double) -> TestTree
+testNixpkgsCommitClone cloneTimeRef = testCase desc $ do
+  start <- CC.getMonotonicTime
+  results <- Set.fromList <$> runSearch args
+  end <- CC.getMonotonicTime
+  assertResults fullExpected results
 
-  -- Assert 2nd run at least 2x faster than 1st run.
-  let diff1 = end1 - start1
-      diff2 = end2 - start2
-      timeErr =
-        mconcat
-          [ "Expected 2nd run (",
-            show diff2,
-            ") >= 2x 1st run (",
-            show diff1,
-            ")."
-          ]
-  assertBool timeErr (diff2 * 2 < diff1)
-
-  -- 3rd run, w/ config filtering.
-  results3 <- runSearch (mkArgs [ospPathSep|examples/config.toml|])
-  expected3 @=? results3
+  let diff = end - start
+  IORef.writeIORef cloneTimeRef (Just diff)
   where
-    args1 = "--clean" : "on" : mkArgs [osp|off|]
+    desc = "Searches commit with nixos/nixpkgs clone"
 
-    mkArgs cfgPath =
-      [ "--config",
-        decodeLenient cfgPath,
-        "--debug",
-        "on",
-        "--name",
-        "nixos/nixpkgs",
-        "search-commit",
-        "c190319055bb5c31acfd7bb8356ce9ab05cb2b36"
-      ]
+    args = "--clean" : "on" : mkArgs [osp|off|]
 
-    assertResults rs = for_ expected $ \e -> do
-      let isMember = Set.member e rs
-          err =
-            mconcat
-              [ "Expected branch '",
-                unpack e,
-                "' in results:",
-                unpack
-                  . mconcat
-                  . fmap ("\n" <>)
-                  $ Set.toList rs
-              ]
-      assertBool err isMember
+testNixpkgsCommitFetch :: IORef (Maybe Double) -> TestTree
+testNixpkgsCommitFetch cloneTimeRef = testCase desc $ do
+  start2 <- CC.getMonotonicTime
+  results <- Set.fromList <$> runSearch (mkArgs [osp|off|])
+  end2 <- CC.getMonotonicTime
+  assertResults fullExpected results
+
+  -- If diff1 was saved (first test run), then test the time diff.
+  mDiff1 <- IORef.readIORef cloneTimeRef
+  for_ mDiff1 $ \diff1 -> do
+    -- Assert 2nd run at least 2x faster than 1st run.
+    let diff2 = end2 - start2
+        timeErr =
+          mconcat
+            [ "Expected 2nd run (",
+              show diff2,
+              ") >= 2x 1st run (",
+              show diff1,
+              ")."
+            ]
+    assertBool timeErr (diff2 * 2 < diff1)
+  where
+    desc = "Searches commit with nixos/nixpkgs fetch"
+
+testNixpkgsCommitBranches :: TestTree
+testNixpkgsCommitBranches = testCase desc $ do
+  results <- runSearch (mkArgs [ospPathSep|examples/config.toml|])
+  expected @=? results
+  where
+    desc = "Searches commit in nixos/nixpkgs with branch filters"
 
     expected =
-      [ "- origin/haskell-updates",
-        "- origin/master",
-        "- origin/nixos-unstable",
-        "- origin/nixos-unstable-small",
-        "- origin/nixpkgs-unstable",
-        "- origin/staging",
-        "- origin/staging-next",
-        "- origin/staging-nixos"
-      ]
-
-    expected3 =
       [ "- origin/master",
         "- origin/nixos-unstable",
         "- origin/nixos-unstable-small",
         "- origin/nixpkgs-unstable"
       ]
+
+mkArgs :: OsString -> [String]
+mkArgs cfgPath =
+  [ "--config",
+    decodeLenient cfgPath,
+    "--debug",
+    "on",
+    "--name",
+    "nixos/nixpkgs",
+    "search-commit",
+    "c190319055bb5c31acfd7bb8356ce9ab05cb2b36"
+  ]
+
+fullExpected :: [Text]
+fullExpected =
+  [ "- origin/haskell-updates",
+    "- origin/master",
+    "- origin/nixos-unstable",
+    "- origin/nixos-unstable-small",
+    "- origin/nixpkgs-unstable",
+    "- origin/staging",
+    "- origin/staging-next",
+    "- origin/staging-nixos"
+  ]
+
+assertResults :: [Text] -> Set Text -> IO ()
+assertResults expected rs = for_ expected $ \e -> do
+  let isMember = Set.member e rs
+      err =
+        mconcat
+          [ "Expected branch '",
+            unpack e,
+            "' in results:",
+            unpack
+              . mconcat
+              . fmap ("\n" <>)
+              $ Set.toList rs
+          ]
+  assertBool err isMember
 
 runSearch :: [String] -> IO [Text]
 runSearch args = do
@@ -121,6 +155,7 @@ runSearch args = do
       . runFileReader
       . runHandleReader
       . runHandleWriter
+      . runHandleW
       . runPathReader
       . runPathWriter
       . runOptparse
@@ -155,3 +190,13 @@ runTerm logsRef = interpret_ $ \case
     let strs = T.lines $ pack str
     liftIO $ IORef.modifyIORef logsRef (<> strs)
   other -> error $ "unimplemented: " ++ showEffectCons other
+
+-- Override HandleWriter to prevent test output interference.
+runHandleW ::
+  (HandleWriter :> es) =>
+  Eff es a ->
+  Eff es a
+runHandleW = Eff.Dyn.interpose $ \env -> \case
+  HW.HSetBuffering _ _ -> pure ()
+  HW.HSetEcho _ _ -> pure ()
+  op -> Eff.Dyn.passthrough env op

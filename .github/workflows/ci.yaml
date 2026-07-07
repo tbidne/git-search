@@ -40,4 +40,4 @@ jobs:
 
       - name: Test
         shell: bash
-        run: TEST_FUNCTIONAL=1 cabal test functional
+        run: TEST_FUNCTIONAL=clone cabal test functional

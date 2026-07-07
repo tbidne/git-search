@@ -11,7 +11,7 @@ import Effectful.Concurrent.Async qualified as Async
 import Effectful.Exception qualified as Ex
 import Effectful.FileSystem.FileReader.Static qualified as FR
 import Effectful.FileSystem.HandleReader.Static qualified as HR
-import Effectful.FileSystem.HandleWriter.Static qualified as HW
+import Effectful.FileSystem.HandleWriter.Dynamic qualified as HW
 import Effectful.FileSystem.PathReader.Static qualified as PR
 import Git.Search qualified
 import Git.Search.Config qualified as Config
