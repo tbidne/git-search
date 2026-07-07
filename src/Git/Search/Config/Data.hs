@@ -2,6 +2,7 @@ module Git.Search.Config.Data
   ( -- * Config
     Config (..),
     RepoConfig (..),
+    RepoName (..),
     Protocol (..),
     Commit (..),
 
@@ -45,11 +46,13 @@ type family RepoConfigF p a where
   RepoConfigF ConfigPhaseToml a = Maybe a
   RepoConfigF ConfigPhaseMerged a = a
 
+newtype RepoName = MkRepoName {unRepoName :: OsString}
+
 type NameF :: ConfigPhase -> Type
 type family NameF p where
-  NameF ConfigPhaseArgs = Maybe (WithDisabled OsString)
-  NameF ConfigPhaseToml = Maybe OsString
-  NameF ConfigPhaseMerged = Maybe OsString
+  NameF ConfigPhaseArgs = Maybe (WithDisabled RepoName)
+  NameF ConfigPhaseToml = Maybe RepoName
+  NameF ConfigPhaseMerged = Maybe RepoName
 
 type RepoConfig :: ConfigPhase -> Type
 data RepoConfig p = MkRepoConfig
@@ -87,6 +90,11 @@ type family SearchCommitF p where
   SearchCommitF ConfigPhaseArgs = Commit
   SearchCommitF ConfigPhaseEnv = (Commit, RepoPath, RepoSrc)
 
+type SearchPullRequestF :: ConfigPhase -> Type
+type family SearchPullRequestF p where
+  SearchPullRequestF ConfigPhaseArgs = Word32
+  SearchPullRequestF ConfigPhaseEnv = (Word32, RepoPath, RepoSrc, RepoName)
+
 -- | Command to run.
 type Command :: ConfigPhase -> Type
 data Command p
@@ -94,6 +102,8 @@ data Command p
     DeleteCache (DeleteCacheF p)
   | -- | Searches for the commit.
     SearchCommit (SearchCommitF p)
+  | -- | Searches for the pull request.
+    SearchPullRequest (SearchPullRequestF p)
 
 type RepoF :: ConfigPhase -> Type
 type family RepoF p where

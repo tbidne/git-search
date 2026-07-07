@@ -2,7 +2,6 @@
 
 module Main (main) where
 
-import Control.Exception (throwIO)
 import Data.IORef (IORef)
 import Data.IORef qualified as IORef
 import Data.List qualified as L
@@ -15,6 +14,7 @@ import Effectful.Dynamic.Utils (showEffectCons)
 import Effectful.FileSystem.HandleWriter.Dynamic qualified as HW
 import Effectful.Terminal.Dynamic qualified as Term
 import GHC.Clock qualified as CC
+import Git.Search.Network (runNetwork)
 import Git.Search.Prelude
 import Git.Search.Runner qualified
 import System.Environment qualified as Env
@@ -31,17 +31,11 @@ main = do
       cloneTimeRef <- IORef.newIORef Nothing
 
       case T.toLower (T.strip (pack cmd)) of
-        "clone" -> do
+        "clone" ->
           runTests
-            [ testNixpkgsCommitClone cloneTimeRef,
-              testNixpkgsCommitFetch cloneTimeRef,
-              testNixpkgsCommitBranches
-            ]
-        _ ->
-          runTests
-            [ testNixpkgsCommitFetch cloneTimeRef,
-              testNixpkgsCommitBranches
-            ]
+            $ testNixpkgsCommitClone cloneTimeRef
+            : mainTests cloneTimeRef
+        _ -> runTests (mainTests cloneTimeRef)
   where
     dontRun = IO.putStrLn "*** Functional tests disabled. Enable with TEST_FUNCTIONAL=1 ***"
 
@@ -51,6 +45,12 @@ main = do
           "Functional"
           AllSucceed
           tests
+
+    mainTests ref =
+      [ testNixpkgsCommitFetch ref,
+        testNixpkgsCommitBranches,
+        testNixpkgsPullRequest
+      ]
 
 testNixpkgsCommitClone :: IORef (Maybe Double) -> TestTree
 testNixpkgsCommitClone cloneTimeRef = testCase desc $ do
@@ -62,7 +62,7 @@ testNixpkgsCommitClone cloneTimeRef = testCase desc $ do
   let diff = end - start
   IORef.writeIORef cloneTimeRef (Just diff)
   where
-    desc = "Searches commit with nixos/nixpkgs clone"
+    desc = "Searches commit in nixos/nixpkgs with clean"
 
     args = "--clean" : "on" : mkArgs [osp|off|]
 
@@ -88,7 +88,7 @@ testNixpkgsCommitFetch cloneTimeRef = testCase desc $ do
             ]
     assertBool timeErr (diff2 * 2 < diff1)
   where
-    desc = "Searches commit with nixos/nixpkgs fetch"
+    desc = "Searches commit in nixos/nixpkgs"
 
 testNixpkgsCommitBranches :: TestTree
 testNixpkgsCommitBranches = testCase desc $ do
@@ -104,8 +104,38 @@ testNixpkgsCommitBranches = testCase desc $ do
         "- origin/nixpkgs-unstable"
       ]
 
+testNixpkgsPullRequest :: TestTree
+testNixpkgsPullRequest = testCase desc $ do
+  results <- Set.fromList <$> runSearch args
+  assertResults expected results
+  where
+    desc = "Searches pr in nixos/nixpkgs"
+
+    args =
+      mkArgsCmd
+        [ "search-pr",
+          "510883"
+        ]
+        [osp|off|]
+
+    expected =
+      [ "- origin/haskell-updates",
+        "- origin/master",
+        "- origin/nixos-unstable",
+        "- origin/nixos-unstable-small",
+        "- origin/nixpkgs-26.05-darwin",
+        "- origin/nixpkgs-unstable"
+      ]
+
 mkArgs :: OsString -> [String]
-mkArgs cfgPath =
+mkArgs =
+  mkArgsCmd
+    [ "search-commit",
+      "c190319055bb5c31acfd7bb8356ce9ab05cb2b36"
+    ]
+
+mkArgsCmd :: [String] -> OsString -> [String]
+mkArgsCmd cmdArgs cfgPath =
   [ "--config",
     decodeLenient cfgPath,
     "--log-color",
@@ -113,10 +143,9 @@ mkArgs cfgPath =
     "--log-level",
     "debug",
     "--name",
-    "nixos/nixpkgs",
-    "search-commit",
-    "c190319055bb5c31acfd7bb8356ce9ab05cb2b36"
+    "nixos/nixpkgs"
   ]
+    ++ cmdArgs
 
 fullExpected :: [Text]
 fullExpected =
@@ -158,6 +187,7 @@ runSearch args = do
       . runHandleReader
       . runHandleWriter
       . runHandleW
+      . runNetwork
       . runPathReader
       . runPathWriter
       . runOptparse

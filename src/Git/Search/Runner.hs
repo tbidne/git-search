@@ -17,10 +17,17 @@ import Git.Search qualified
 import Git.Search.Config qualified as Config
 import Git.Search.Config.Args (Args)
 import Git.Search.Config.Args qualified
-import Git.Search.Config.Data (Command (DeleteCache, SearchCommit))
+import Git.Search.Config.Data
+  ( Command
+      ( DeleteCache,
+        SearchCommit,
+        SearchPullRequest
+      ),
+  )
 import Git.Search.Config.Toml (Toml)
 import Git.Search.Config.WithDisabled (WithDisabled (Disabled, With))
 import Git.Search.Logging qualified as Logging
+import Git.Search.Network (Network)
 import Git.Search.Prelude
 import System.IO qualified as IO
 import TOML qualified
@@ -31,6 +38,7 @@ runSearch ::
     HasCallStack,
     HandleReader :> es,
     HandleWriter :> es,
+    Network :> es,
     Optparse :> es,
     PathReader :> es,
     PathWriter :> es,
@@ -48,21 +56,25 @@ runSearch = withHiddenInput $ do
   runReader env $ do
     let cmdAction = case cmd of
           DeleteCache cmdArgs -> Git.Search.deleteCache cmdArgs
-          SearchCommit cmdArgs -> do
-            branches <- Git.Search.searchCommit cmdArgs
-            case branches of
-              [] -> Logging.logSuccess "No branches found."
-              bs@(_ : _) -> do
-                let numBranches = length bs
-                    formatted = mconcat $ fmap ("\n - " <>) bs
-                Logging.logSuccess
-                  $ mconcat
-                    [ "Found ",
-                      show numBranches,
-                      " branches:",
-                      unpack formatted
-                    ]
+          SearchCommit cmdArgs ->
+            Git.Search.searchCommit cmdArgs >>= printBranches
+          SearchPullRequest cmdArgs ->
+            Git.Search.searchPullRequest cmdArgs >>= printBranches
+
     Async.race_ cmdAction drainStdinLoop
+  where
+    printBranches branches = case branches of
+      [] -> Logging.logSuccess "No branches found."
+      bs@(_ : _) -> do
+        let numBranches = length bs
+            formatted = mconcat $ fmap ("\n - " <>) bs
+        Logging.logSuccess
+          $ mconcat
+            [ "Found ",
+              show numBranches,
+              " branches:",
+              unpack formatted
+            ]
 
 getToml ::
   ( HasCallStack,

@@ -4,6 +4,12 @@
 
 module Git.Search.Prelude
   ( module X,
+
+    -- * Exceptions
+    mapThrowLeft,
+    throwLeft,
+
+    -- * Dev
     todo,
   )
 where
@@ -17,8 +23,13 @@ import Control.Applicative as X
     (<|>),
   )
 import Control.Category as X ((>>>))
-import Control.Exception as X (Exception, displayException)
-import Control.Exception.Utils as X (throwM, throwString, trySync)
+import Control.Exception as X
+  ( Exception,
+    SomeException,
+    displayException,
+    throwIO,
+  )
+import Control.Exception.Utils as X (MonadThrow, throwM, throwString, trySync)
 import Control.Monad as X
   ( Monad,
     MonadFail,
@@ -32,8 +43,10 @@ import Control.Monad as X
     (>>=),
   )
 import Control.Monad.IO.Class as X (MonadIO, liftIO)
+import Data.Aeson as X (FromJSON, ToJSON)
 import Data.Bifunctor as X (first)
 import Data.Bool as X (Bool (False, True), not, otherwise, (&&))
+import Data.ByteString as X (ByteString)
 import Data.Either as X (Either (Left, Right), either)
 import Data.Eq as X (Eq, (/=), (==))
 import Data.Foldable as X (Foldable, for_, length, traverse_)
@@ -50,8 +63,10 @@ import Data.Ord as X (Ord, (<), (<=), (>))
 import Data.Semigroup as X (Semigroup, (<>))
 import Data.String as X (IsString, String, fromString)
 import Data.Text as X (Text, pack, unpack)
+import Data.Text.Encoding.Error as X (UnicodeException)
 import Data.Traversable as X (Traversable, for, traverse)
 import Data.Tuple as X (fst, snd)
+import Data.Word as X (Word32)
 import Effectful as X (Eff, IOE, runEff, type (:>))
 import Effectful.Concurrent as X (Concurrent, runConcurrent)
 import Effectful.FileSystem.FileReader.Static as X (FileReader, runFileReader)
@@ -90,6 +105,7 @@ import GHC.Err as X (error)
 import GHC.Exception (errorCallWithCallStackException)
 import GHC.Exts (RuntimeRep, TYPE, raise#)
 import GHC.Float as X (Double)
+import GHC.Generics as X (Generic)
 import GHC.Integer as X (Integer)
 import GHC.Num as X (fromInteger, (*), (+), (-))
 import GHC.Real as X (floor)
@@ -98,6 +114,13 @@ import GHC.Stack.Types as X (HasCallStack)
 import System.Exit as X (ExitCode (ExitFailure, ExitSuccess))
 import System.IO as X (IO)
 import TOML as X (DecodeTOML (tomlDecoder))
+
+mapThrowLeft :: (Exception e2, MonadThrow m) => (e1 -> e2) -> Either e1 a -> m a
+mapThrowLeft f = throwLeft . first f
+
+throwLeft :: (Exception e, MonadThrow m) => Either e a -> m a
+throwLeft (Right x) = pure x
+throwLeft (Left e) = throwM e
 
 todo :: forall {r :: RuntimeRep} (a :: TYPE r). (HasCallStack) => a
 todo = raise# (errorCallWithCallStackException "Prelude.todo: not yet implemented" ?callStack)

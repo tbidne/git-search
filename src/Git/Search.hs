@@ -3,6 +3,7 @@
 module Git.Search
   ( -- * Searching
     searchCommit,
+    searchPullRequest,
 
     -- * Deleting
     deleteCache,
@@ -11,6 +12,7 @@ where
 
 import Control.Exception.Utils qualified as Ex.Utils
 import Data.List qualified as L
+import Data.List.NonEmpty qualified as NE
 import Data.Text qualified as T
 import Data.Time.Relative (Format (verbosity))
 import Data.Time.Relative qualified as Time.Rel
@@ -22,15 +24,19 @@ import Git.Search.Config
   ( Env (coreConfig),
   )
 import Git.Search.Config.Data
-  ( Commit (unCommit),
+  ( Commit (MkCommit, unCommit),
     Config (branches, clean),
     DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
+    RepoName (unRepoName),
     RepoPath (unRepoPath),
     RepoSrc (unRepoSrc),
   )
 import Git.Search.Logging qualified as Logging
+import Git.Search.Network (Network)
+import Git.Search.Network qualified as Network
 import Git.Search.Prelude
 
+-- | Deletes the cache.
 deleteCache ::
   ( HasCallStack,
     PathReader :> es,
@@ -76,6 +82,80 @@ searchCommit ::
 searchCommit (commit, repoPath, repoSrc) = do
   cloneRepo repoPath repoSrc
   findBranches commit repoPath
+
+searchPullRequest ::
+  ( HasCallStack,
+    PathReader :> es,
+    PathWriter :> es,
+    Process :> es,
+    Network :> es,
+    Reader Env :> es,
+    Terminal :> es,
+    Time :> es
+  ) =>
+  (Word32, RepoPath, RepoSrc, RepoName) ->
+  Eff es [Text]
+searchPullRequest (prNum, repoPath, repoSrc, repoName) = do
+  commit <- prToCommit prNum repoName
+  searchCommit (commit, repoPath, repoSrc)
+
+prToCommit ::
+  ( HasCallStack,
+    Network :> es,
+    Reader Env :> es,
+    Terminal :> es
+  ) =>
+  Word32 ->
+  RepoName ->
+  Eff es Commit
+prToCommit prNum repoName = do
+  manager <- Network.newTlsManager
+
+  baseReq <- Network.mkJsonRequest baseUrl
+  pr <- Network.runJsonRequest @GitPullRequest commitsUrl manager baseReq
+
+  when (pr.state == "open")
+    $ Logging.logInfo
+    $ "Pull request "
+    ++ prStr
+    ++ " is currently open."
+
+  commitsReq <- Network.mkJsonRequest commitsUrl
+  commits <- Network.runJsonRequest @[GitCommit] commitsUrl manager commitsReq
+
+  case commits of
+    [] -> throwString "No commits found."
+    (c : cs) -> do
+      let latest = NE.last (c :| cs)
+          latestStr = unpack latest.sha
+
+      Logging.logDebug $ "Found commit: " ++ latestStr
+
+      MkCommit <$> encodeThrowM latestStr
+  where
+    prStr = show prNum
+
+    baseUrl =
+      mconcat
+        [ "https://api.github.com/repos/",
+          decodeLenient repoName.unRepoName,
+          "/pulls/",
+          prStr
+        ]
+
+    commitsUrl = baseUrl <> "/commits"
+
+newtype GitPullRequest = MkGitPullRequest
+  { state :: Text
+  }
+  deriving stock (Generic)
+  deriving anyclass (FromJSON)
+
+newtype GitCommit = MkGitCommit
+  { sha :: Text
+  }
+  deriving stock (Generic)
+  deriving anyclass (FromJSON)
 
 cloneRepo ::
   ( HasCallStack,

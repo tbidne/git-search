@@ -13,6 +13,7 @@ import Git.Search.Config.Data
     ConfigPhase (ConfigPhaseMerged),
     Protocol (ProtocolHttps),
     RepoConfig (MkRepoConfig, domain, name, protocol),
+    RepoName (unRepoName),
   )
 import Git.Search.Config.Toml (Toml (coreConfig))
 import Git.Search.Config.WithDisabled (WithDisabled (Disabled, With))
@@ -111,14 +112,14 @@ mergeMaybe a b = WD.toMaybe a <|> b
 mergeBranches ::
   Maybe (WithDisabled [OsString]) ->
   Maybe (Map OsString [OsString]) ->
-  Maybe OsString ->
+  Maybe RepoName ->
   [OsString]
 mergeBranches Nothing Nothing _ = []
 mergeBranches (Just Disabled) _ _ = []
 mergeBranches (Just (With branches)) _ _ = branches
 mergeBranches _ _ Nothing = []
 mergeBranches Nothing (Just branchMap) (Just repoName) =
-  Map.findWithDefault [] repoName branchMap
+  Map.findWithDefault [] repoName.unRepoName branchMap
 
 mergeWD ::
   (Maybe a -> a) ->

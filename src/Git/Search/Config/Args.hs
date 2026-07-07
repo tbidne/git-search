@@ -13,12 +13,13 @@ import Data.Version (showVersion)
 import Effectful.Optparse.Static qualified as EOA
 import Git.Search.Config.Args.TH qualified as TH
 import Git.Search.Config.Data
-  ( Command (DeleteCache, SearchCommit),
+  ( Command (DeleteCache, SearchCommit, SearchPullRequest),
     Commit (MkCommit),
     Config (MkConfig, branches, clean, logColor, logLevel, repo),
     ConfigPhase (ConfigPhaseArgs),
     Protocol (ProtocolHttps, ProtocolSsh),
     RepoConfig (MkRepoConfig, domain, name, protocol),
+    RepoName (MkRepoName),
   )
 import Git.Search.Config.WithDisabled (WithDisabled)
 import Git.Search.Config.WithDisabled qualified as WD
@@ -106,6 +107,13 @@ getArgs = EOA.execParser parserInfoArgs
               " - origin/master",
               " - origin/nixos-unstable",
               " - origin/nixpkgs-unstable"
+            ],
+          mkExample
+            [ "3. Searching for a pull-request:",
+              "",
+              "$ git-search --name nixos/nixpkgs search-pr 510883",
+              "Found 166 branches:",
+              " ..."
             ]
         ]
 
@@ -197,6 +205,7 @@ commandParser =
   OA.hsubparser
     ( mconcat
         [ mkCommand "search-commit" searchCommitParser searchCommitHelp,
+          mkCommand "search-pr" searchPullRequestParser searchPullRequestHelp,
           OA.commandGroup "Search commands:"
         ]
     )
@@ -208,7 +217,12 @@ commandParser =
       )
   where
     searchCommitParser = SearchCommit <$> commitParser
-    searchCommitHelp = mkCmdDescStrNoLine "Searches for a commit."
+    searchCommitHelp = mkCmdDescStr "Searches for a commit."
+
+    searchPullRequestParser = SearchPullRequest <$> pullRequestParser
+    searchPullRequestHelp =
+      mkCmdDescStrNoLine
+        "Searches for a pull-request. Only available for github.com"
 
     deleteCacheParser = pure (DeleteCache ())
     deleteCacheHelp = mkCmdDescStr "Deletes the cache."
@@ -282,7 +296,16 @@ commitParser =
         mkHelp "Commit hash for which we want to search."
       ]
 
-nameParser :: Parser (Maybe (WithDisabled OsString))
+pullRequestParser :: Parser Word32
+pullRequestParser =
+  OA.argument
+    OA.auto
+    $ mconcat
+      [ OA.metavar "INT",
+        mkHelp "Positive integer pull request id."
+      ]
+
+nameParser :: Parser (Maybe (WithDisabled RepoName))
 nameParser =
   OA.optional
     $ OA.option
@@ -300,7 +323,7 @@ nameParser =
   where
     r = do
       s <- OA.str
-      WD.disabledParser s (encodeFail . unpack $ s)
+      WD.disabledParser s (fmap MkRepoName . encodeFail . unpack $ s)
 
 protocolParser :: Parser (Maybe (WithDisabled Protocol))
 protocolParser =

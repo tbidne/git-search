@@ -12,12 +12,13 @@ import Effectful.FileSystem.PathWriter.Static qualified as PW
 import FileSystem.Path qualified as FS.Path
 import Git.Search.Config.Args (Args (command))
 import Git.Search.Config.Data
-  ( Command (DeleteCache, SearchCommit),
+  ( Command (DeleteCache, SearchCommit, SearchPullRequest),
     Config (MkConfig, branches, clean, logColor, logLevel, repo),
     ConfigPhase (ConfigPhaseEnv),
     DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
     Protocol (ProtocolHttps, ProtocolSsh),
     RepoConfig (domain, name, protocol),
+    RepoName (MkRepoName),
     RepoPath (MkRepoPath),
     RepoSrc (MkRepoSrc),
   )
@@ -59,13 +60,13 @@ toEnv args mToml = do
     DeleteCache () -> do
       case merged.coreConfig.repo.name of
         Nothing -> pure $ DeleteCache (DeleteCacheGlobal root)
-        Just name -> do
+        Just (MkRepoName name) -> do
           pathRel <- FS.Path.parseRelDir name
           let path = root <</>> pathRel
               repoPath = MkRepoPath path
           pure $ DeleteCache (DeleteCacheLocal repoPath)
     SearchCommit commit -> do
-      name <- case merged.coreConfig.repo.name of
+      MkRepoName name <- case merged.coreConfig.repo.name of
         Just n -> pure n
         Nothing ->
           throwString
@@ -87,6 +88,42 @@ toEnv args mToml = do
           repoSrc = MkRepoSrc src
 
       pure $ SearchCommit (commit, repoPath, repoSrc)
+    SearchPullRequest prNum -> do
+      repoName@(MkRepoName name) <- case merged.coreConfig.repo.name of
+        Just n -> pure n
+        Nothing ->
+          throwString
+            $ mconcat
+              [ "search-pr: Repository name must be specified by CLI ",
+                "args or Toml config."
+              ]
+
+      let domain = merged.coreConfig.repo.domain
+          protocol = merged.coreConfig.repo.protocol
+
+      unless (domain == [osstr|github.com|]) $ do
+        throwString
+          $ "search-pr: --domain must be github.com, not: "
+          ++ decodeLenient domain
+
+      case protocol of
+        ProtocolHttps -> pure ()
+        ProtocolSsh ->
+          throwString "search-pr: --protocol must be https, not: ssh"
+
+      let -- OsString not OsPath since we want slashes preserved.
+          prefix = case merged.coreConfig.repo.protocol of
+            ProtocolHttps -> [osstr|https://|] <> merged.coreConfig.repo.domain <> [osstr|/|]
+            ProtocolSsh -> [osstr|git@|] <> merged.coreConfig.repo.domain <> [osstr|:|]
+
+          src = prefix <> name
+
+      pathRel <- FS.Path.parseRelDir name
+      let path = root <</>> pathRel
+          repoPath = MkRepoPath path
+          repoSrc = MkRepoSrc src
+
+      pure $ SearchPullRequest (prNum, repoPath, repoSrc, repoName)
 
   pure
     ( MkEnv

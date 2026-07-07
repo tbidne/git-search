@@ -8,6 +8,7 @@ import Git.Search.Config.Data
   ( Config (MkConfig, branches, clean, logColor, logLevel, repo),
     ConfigPhase (ConfigPhaseToml),
     RepoConfig (MkRepoConfig, domain, name, protocol),
+    RepoName (MkRepoName),
   )
 import Git.Search.Prelude
 import TOML (Decoder, getFieldOptWith, getFieldWith)
@@ -45,7 +46,7 @@ instance DecodeTOML Toml where
           $ do
             (,,)
               <$> getFieldOptWith decodeOsString "domain"
-              <*> getFieldOptWith decodeOsString "name"
+              <*> getFieldOptWith (MkRepoName <$> decodeOsString) "name"
               <*> getFieldOptWith tomlDecoder "protocol"
 
       decodeMisc =
