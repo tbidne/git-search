@@ -18,7 +18,7 @@ import Git.Search.Config qualified as Config
 import Git.Search.Config.Args (Args)
 import Git.Search.Config.Args qualified
 import Git.Search.Config.Data
-  ( Command (SearchCommit),
+  ( Command (DeleteCache, SearchCommit),
     WithDisabled (Disabled, With),
   )
 import Git.Search.Config.Toml (Toml)
@@ -47,22 +47,23 @@ runSearch = withHiddenInput $ do
   (env, cmd) <- Config.toEnv args mToml
 
   let cmdAction = case cmd of
-        SearchCommit cmdArgs -> Git.Search.searchCommit env cmdArgs
+        DeleteCache cmdArgs -> Git.Search.deleteCache env cmdArgs
+        SearchCommit cmdArgs -> do
+          branches <- Git.Search.searchCommit env cmdArgs
+          case branches of
+            [] -> putStrLn "No branches found."
+            bs@(_ : _) -> do
+              let numBranches = length bs
+                  formatted = mconcat $ fmap ("\n - " <>) bs
+              putStrLn
+                $ mconcat
+                  [ "Found ",
+                    show numBranches,
+                    " branches:",
+                    unpack formatted
+                  ]
 
-  branches <- race' cmdAction drainStdinLoop
-
-  case branches of
-    [] -> putStrLn "No branches found."
-    bs@(_ : _) -> do
-      let numBranches = length bs
-          formatted = mconcat $ fmap ("\n - " <>) bs
-      putStrLn
-        $ mconcat
-          [ "Found ",
-            show numBranches,
-            " branches:",
-            unpack formatted
-          ]
+  Async.race_ cmdAction drainStdinLoop
 
 getToml ::
   ( HasCallStack,
@@ -143,9 +144,6 @@ drainStdin =
         HR.hIsReadable IO.stdin >>= \case
           False -> pure ()
           True -> void $ HR.hGetNonBlocking IO.stdin 1_000
-
-race' :: (Concurrent :> es) => Eff es a -> Eff es a -> Eff es a
-race' mx my = Async.race mx my <&> either id id
 
 getXdgConfig :: (HasCallStack, PathReader :> es) => Eff es OsPath
 getXdgConfig = PR.getXdgConfig [osp|git-search|]

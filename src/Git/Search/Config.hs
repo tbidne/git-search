@@ -12,9 +12,10 @@ import Effectful.FileSystem.PathWriter.Static qualified as PW
 import FileSystem.Path qualified as FS.Path
 import Git.Search.Config.Args (Args (command))
 import Git.Search.Config.Data
-  ( Command (SearchCommit),
+  ( Command (DeleteCache, SearchCommit),
     Config (MkConfig, branches, clean, debug, repo),
     ConfigPhase (ConfigPhaseEnv),
+    DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
     Protocol (ProtocolHttps, ProtocolSsh),
     RepoConfig (domain, name, protocol),
     RepoPath (MkRepoPath),
@@ -36,14 +37,7 @@ toEnv ::
   Maybe Toml ->
   Eff es (Env, Command ConfigPhaseEnv)
 toEnv args mToml = do
-  merged <- mergeConfig args mToml
-
-  let -- OsString not OsPath since we want slashes preserved.
-      prefix = case merged.coreConfig.repo.protocol of
-        ProtocolHttps -> [osstr|https://|] <> merged.coreConfig.repo.domain <> [osstr|/|]
-        ProtocolSsh -> [osstr|git@|] <> merged.coreConfig.repo.domain <> [osstr|:|]
-
-      src = prefix <> merged.coreConfig.repo.name
+  let merged = mergeConfig args mToml
 
   -- We get the rootOsP in two steps, rather than the direct
   --
@@ -61,13 +55,38 @@ toEnv args mToml = do
   -- take care of creating the repo directory if necessary.
   PW.createDirectoryIfMissing True rootOsP
 
-  pathRel <- FS.Path.parseRelDir merged.coreConfig.repo.name
-  let path = root <</>> pathRel
-      repoPath = MkRepoPath path
-      repoSrc = MkRepoSrc src
+  command <- case args.command of
+    DeleteCache () -> do
+      case merged.coreConfig.repo.name of
+        Nothing -> pure $ DeleteCache (DeleteCacheGlobal root)
+        Just name -> do
+          pathRel <- FS.Path.parseRelDir name
+          let path = root <</>> pathRel
+              repoPath = MkRepoPath path
+          pure $ DeleteCache (DeleteCacheLocal repoPath)
+    SearchCommit commit -> do
+      name <- case merged.coreConfig.repo.name of
+        Just n -> pure n
+        Nothing ->
+          throwString
+            $ mconcat
+              [ "search-commit: Repository name must be specified by CLI ",
+                "args or Toml config."
+              ]
 
-  let command = case args.command of
-        SearchCommit commit -> SearchCommit (commit, repoPath, repoSrc)
+      let -- OsString not OsPath since we want slashes preserved.
+          prefix = case merged.coreConfig.repo.protocol of
+            ProtocolHttps -> [osstr|https://|] <> merged.coreConfig.repo.domain <> [osstr|/|]
+            ProtocolSsh -> [osstr|git@|] <> merged.coreConfig.repo.domain <> [osstr|:|]
+
+          src = prefix <> name
+
+      pathRel <- FS.Path.parseRelDir name
+      let path = root <</>> pathRel
+          repoPath = MkRepoPath path
+          repoSrc = MkRepoSrc src
+
+      pure $ SearchCommit (commit, repoPath, repoSrc)
 
   pure
     ( MkEnv

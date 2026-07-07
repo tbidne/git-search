@@ -1,7 +1,11 @@
 {-# LANGUAGE QuasiQuotes #-}
 
 module Git.Search
-  ( searchCommit,
+  ( -- * Searching
+    searchCommit,
+
+    -- * Deleting
+    deleteCache,
   )
 where
 
@@ -20,10 +24,38 @@ import Git.Search.Config
 import Git.Search.Config.Data
   ( Commit (unCommit),
     Config (branches, clean, debug),
+    DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
     RepoPath (unRepoPath),
     RepoSrc (unRepoSrc),
   )
 import Git.Search.Prelude
+
+deleteCache ::
+  ( HasCallStack,
+    PathReader :> es,
+    PathWriter :> es,
+    Terminal :> es
+  ) =>
+  Env ->
+  DeleteCacheType ->
+  Eff es ()
+deleteCache env cacheType = case cacheType of
+  DeleteCacheGlobal (MkPath cacheDir) -> do
+    when env.coreConfig.debug $ do
+      putStrLn $ "Deleting cache: " <> decodeLenient cacheDir
+
+    PW.removeDirectoryIfExists_ cacheDir
+  DeleteCacheLocal repoPath -> do
+    let repoDir = repoPathToOsP repoPath
+        repoDirStr = decodeLenient repoDir
+
+    when env.coreConfig.debug $ do
+      putStrLn $ "Deleting cache repo: " <> repoDirStr
+
+    exists <- PR.doesDirectoryExist repoDir
+    if exists
+      then PW.removeDirectory repoDir
+      else throwString $ "Cached repository does not exist: " <> repoDirStr
 
 -- | Returns a list of branches matching the search criteria.
 searchCommit ::

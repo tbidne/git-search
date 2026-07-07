@@ -21,66 +21,61 @@ import Git.Search.Prelude
 newtype MergedConfig = MkMergedConfig {coreConfig :: Config ConfigPhaseMerged}
 
 mergeConfig ::
-  (HasCallStack) =>
   Args ->
   Maybe Toml ->
-  Eff es MergedConfig
-mergeConfig args Nothing = do
-  name <- mergeRepoNames args.coreConfig.repo.name Nothing
-
-  pure
-    $ MkMergedConfig
-      { coreConfig =
-          MkConfig
-            { branches =
-                mergeBranches
-                  args.coreConfig.branches
-                  Nothing
-                  name,
-              clean = mergeBoolFalse args.coreConfig.clean Nothing,
-              debug = mergeBoolFalse args.coreConfig.debug Nothing,
-              repo =
-                MkRepoConfig
-                  { domain = mkDomain args.coreConfig.repo.domain,
+  MergedConfig
+mergeConfig args Nothing =
+  let name = mergeRepoNames args.coreConfig.repo.name Nothing
+   in MkMergedConfig
+        { coreConfig =
+            MkConfig
+              { branches =
+                  mergeBranches
+                    args.coreConfig.branches
+                    Nothing
                     name,
-                    protocol = mkProtocol args.coreConfig.repo.protocol
-                  }
-            }
-      }
-mergeConfig args (Just toml) = do
-  name <- mergeRepoNames args.coreConfig.repo.name toml.coreConfig.repo.name
-
-  pure
-    $ MkMergedConfig
-      { coreConfig =
-          MkConfig
-            { branches =
-                mergeBranches
-                  args.coreConfig.branches
-                  toml.coreConfig.branches
-                  name,
-              clean =
-                mergeBoolFalse
-                  args.coreConfig.clean
-                  toml.coreConfig.clean,
-              debug =
-                mergeBoolFalse
-                  args.coreConfig.debug
-                  toml.coreConfig.debug,
-              repo =
-                MkRepoConfig
-                  { domain =
-                      mkDomain
-                        $ args.coreConfig.repo.domain
-                        <|> toml.coreConfig.repo.domain,
+                clean = mergeBoolFalse args.coreConfig.clean Nothing,
+                debug = mergeBoolFalse args.coreConfig.debug Nothing,
+                repo =
+                  MkRepoConfig
+                    { domain = mkDomain args.coreConfig.repo.domain,
+                      name,
+                      protocol = mkProtocol args.coreConfig.repo.protocol
+                    }
+              }
+        }
+mergeConfig args (Just toml) =
+  let name = mergeRepoNames args.coreConfig.repo.name toml.coreConfig.repo.name
+   in MkMergedConfig
+        { coreConfig =
+            MkConfig
+              { branches =
+                  mergeBranches
+                    args.coreConfig.branches
+                    toml.coreConfig.branches
                     name,
-                    protocol =
-                      mkProtocol
-                        $ args.coreConfig.repo.protocol
-                        <|> toml.coreConfig.repo.protocol
-                  }
-            }
-      }
+                clean =
+                  mergeBoolFalse
+                    args.coreConfig.clean
+                    toml.coreConfig.clean,
+                debug =
+                  mergeBoolFalse
+                    args.coreConfig.debug
+                    toml.coreConfig.debug,
+                repo =
+                  MkRepoConfig
+                    { domain =
+                        mkDomain
+                          $ args.coreConfig.repo.domain
+                          <|> toml.coreConfig.repo.domain,
+                      name,
+                      protocol =
+                        mkProtocol
+                          $ args.coreConfig.repo.protocol
+                          <|> toml.coreConfig.repo.protocol
+                    }
+              }
+        }
 
 mergeBoolFalse :: Maybe Bool -> Maybe Bool -> Bool
 mergeBoolFalse (Just b) _ = b
@@ -88,24 +83,21 @@ mergeBoolFalse Nothing (Just b) = b
 mergeBoolFalse Nothing Nothing = False
 
 mergeRepoNames ::
-  (HasCallStack) =>
   Maybe OsString ->
   Maybe OsString ->
-  Eff es OsString
-mergeRepoNames (Just n) _ = pure n
-mergeRepoNames Nothing (Just n) = pure n
-mergeRepoNames Nothing Nothing =
-  throwString "Repository name must be specified by CLI args or Toml config."
+  Maybe OsString
+mergeRepoNames m n = m <|> n
 
 mergeBranches ::
   Maybe (WithDisabled [OsString]) ->
   Maybe (Map OsString [OsString]) ->
-  OsString ->
+  Maybe OsString ->
   [OsString]
 mergeBranches Nothing Nothing _ = []
 mergeBranches (Just Disabled) _ _ = []
 mergeBranches (Just (With branches)) _ _ = branches
-mergeBranches Nothing (Just branchMap) repoName =
+mergeBranches _ _ Nothing = []
+mergeBranches Nothing (Just branchMap) (Just repoName) =
   Map.findWithDefault [] repoName branchMap
 
 mkDomain :: Maybe OsString -> OsString

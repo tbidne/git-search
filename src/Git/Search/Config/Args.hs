@@ -13,7 +13,7 @@ import Data.Version (showVersion)
 import Effectful.Optparse.Static qualified as EOA
 import Git.Search.Config.Args.TH qualified as TH
 import Git.Search.Config.Data
-  ( Command (SearchCommit),
+  ( Command (DeleteCache, SearchCommit),
     Commit (MkCommit),
     Config (MkConfig, branches, clean, debug, repo),
     ConfigPhase (ConfigPhaseArgs),
@@ -225,12 +225,22 @@ commandParser :: Parser (Command ConfigPhaseArgs)
 commandParser =
   OA.hsubparser
     ( mconcat
-        [ mkCommand "search-commit" searchCommitParser searchCommitHelp
+        [ mkCommand "search-commit" searchCommitParser searchCommitHelp,
+          OA.commandGroup "Search commands:"
         ]
     )
+    <|> OA.hsubparser
+      ( mconcat
+          [ mkCommand "delete-cache" deleteCacheParser deleteCacheHelp,
+            OA.commandGroup "Miscellaneous commands:"
+          ]
+      )
   where
     searchCommitParser = SearchCommit <$> commitParser
-    searchCommitHelp = mkCmdDescStr "Searches for a commit."
+    searchCommitHelp = mkCmdDescStrNoLine "Searches for a commit."
+
+    deleteCacheParser = pure (DeleteCache ())
+    deleteCacheHelp = mkCmdDescStr "Deletes the cache."
 
 configParser :: Parser (Maybe (WithDisabled OsPath))
 configParser =

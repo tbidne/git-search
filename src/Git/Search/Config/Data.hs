@@ -11,6 +11,7 @@ module Git.Search.Config.Data
     -- ** Env
     RepoPath (..),
     RepoSrc (..),
+    DeleteCacheType (..),
 
     -- * Phases
     ConfigPhase (..),
@@ -70,7 +71,7 @@ data RepoConfig p = MkRepoConfig
   { -- | Domain e.g. github.com
     domain :: RepoConfigF p OsString,
     -- | Repo name e.g. org/repo
-    name :: RepoConfigF p OsString,
+    name :: Maybe OsString,
     -- | Protocol e.g. https
     protocol :: RepoConfigF p Protocol
   }
@@ -84,6 +85,18 @@ newtype RepoPath = MkRepoPath {unRepoPath :: Path Abs Dir}
 -- | Repository remote source i.e. a URL.
 newtype RepoSrc = MkRepoSrc {unRepoSrc :: OsString}
 
+-- | Determines what kind of delete we perform.
+data DeleteCacheType
+  = -- | Delete entire cache.
+    DeleteCacheGlobal (Path Abs Dir)
+  | -- | Delete specific repo.
+    DeleteCacheLocal RepoPath
+
+type DeleteCacheF :: ConfigPhase -> Type
+type family DeleteCacheF p where
+  DeleteCacheF ConfigPhaseArgs = ()
+  DeleteCacheF ConfigPhaseEnv = DeleteCacheType
+
 type SearchCommitF :: ConfigPhase -> Type
 type family SearchCommitF p where
   SearchCommitF ConfigPhaseArgs = Commit
@@ -91,8 +104,10 @@ type family SearchCommitF p where
 
 -- | Command to run.
 type Command :: ConfigPhase -> Type
-newtype Command p
-  = -- | Searches for the commit.
+data Command p
+  = -- | Deletes the cache.
+    DeleteCache (DeleteCacheF p)
+  | -- | Searches for the commit.
     SearchCommit (SearchCommitF p)
 
 type RepoF :: ConfigPhase -> Type
