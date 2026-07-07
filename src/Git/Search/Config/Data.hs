@@ -104,8 +104,6 @@ data Config p = MkConfig
     -- | Performs a clean clone of the repo. Otherwise runs 'fetch' if the
     -- repo exists.
     clean :: ConfigF p Bool,
-    -- | Commit hash to search.
-    commit :: ConfigF p OsString,
     -- | Additional debug logging.
     debug :: ConfigF p Bool,
     -- | Repo params.

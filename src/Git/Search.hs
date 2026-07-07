@@ -1,7 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 
 module Git.Search
-  ( search,
+  ( searchCommit,
   )
 where
 
@@ -18,13 +18,13 @@ import Git.Search.Config
   ( Env (coreConfig),
   )
 import Git.Search.Config.Data
-  ( Config (branches, clean, commit, debug, repo),
+  ( Config (branches, clean, debug, repo),
     RepoEnv (path, src),
   )
 import Git.Search.Prelude
 
 -- | Returns a list of branches matching the search criteria.
-search ::
+searchCommit ::
   ( HasCallStack,
     PathReader :> es,
     PathWriter :> es,
@@ -33,10 +33,11 @@ search ::
     Time :> es
   ) =>
   Env ->
+  OsString ->
   Eff es [Text]
-search env = do
+searchCommit env commit = do
   cloneRepo env
-  findBranches env
+  findBranches env commit
 
 cloneRepo ::
   ( HasCallStack,
@@ -112,11 +113,12 @@ findBranches ::
     Time :> es
   ) =>
   Env ->
+  OsString ->
   Eff es [Text]
-findBranches env = do
+findBranches env commit = do
   putStrLn $ "Searching for hash " ++ hashStr ++ "..."
 
-  commitExists <- doesCommitExist env
+  commitExists <- doesCommitExist env commit
 
   if not commitExists
     then do
@@ -136,21 +138,21 @@ findBranches env = do
       [ [osstr|branch|],
         [osstr|-r|],
         [osstr|--contains|],
-        env.coreConfig.commit
+        commit
       ]
 
     gitBranchArgs bs =
       [ [osstr|branch|],
         [osstr|-r|],
         [osstr|--contains|],
-        env.coreConfig.commit,
+        commit,
         [osstr|--list|]
       ]
         ++ bs
 
     toText = fmap T.strip . T.lines . pack
 
-    hashStr = decodeLenient env.coreConfig.commit
+    hashStr = decodeLenient commit
 
 doesCommitExist ::
   ( HasCallStack,
@@ -159,8 +161,9 @@ doesCommitExist ::
     Terminal :> es
   ) =>
   Env ->
+  OsString ->
   Eff es Bool
-doesCommitExist env = do
+doesCommitExist env commit = do
   (ec, _, _) <-
     PW.withCurrentDirectory (toOsPath env.coreConfig.repo.path)
       $ runGit env gitArgs
@@ -171,7 +174,7 @@ doesCommitExist env = do
     gitArgs =
       [ [osstr|cat-file|],
         [osstr|-e|],
-        env.coreConfig.commit
+        commit
       ]
 
 runGitOut ::

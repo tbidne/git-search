@@ -9,7 +9,7 @@ where
 import Data.Map.Strict qualified as Map
 import Git.Search.Config.Args (Args (coreConfig))
 import Git.Search.Config.Data
-  ( Config (MkConfig, branches, clean, commit, debug, repo),
+  ( Config (MkConfig, branches, clean, debug, repo),
     ConfigPhase (ConfigPhaseMerged),
     Protocol (ProtocolHttps),
     RepoConfig (MkRepoConfig, domain, name, protocol),
@@ -26,8 +26,6 @@ mergeConfig ::
   Maybe Toml ->
   Eff es MergedConfig
 mergeConfig args Nothing = do
-  commit <- mergeCommitHash args.coreConfig.commit Nothing
-
   name <- mergeRepoNames args.coreConfig.repo.name Nothing
 
   pure
@@ -40,7 +38,6 @@ mergeConfig args Nothing = do
                   Nothing
                   name,
               clean = mergeBoolFalse args.coreConfig.clean Nothing,
-              commit,
               debug = mergeBoolFalse args.coreConfig.debug Nothing,
               repo =
                 MkRepoConfig
@@ -51,8 +48,6 @@ mergeConfig args Nothing = do
             }
       }
 mergeConfig args (Just toml) = do
-  commit <- mergeCommitHash args.coreConfig.commit toml.coreConfig.commit
-
   name <- mergeRepoNames args.coreConfig.repo.name toml.coreConfig.repo.name
 
   pure
@@ -68,7 +63,6 @@ mergeConfig args (Just toml) = do
                 mergeBoolFalse
                   args.coreConfig.clean
                   toml.coreConfig.clean,
-              commit,
               debug =
                 mergeBoolFalse
                   args.coreConfig.debug
@@ -92,16 +86,6 @@ mergeBoolFalse :: Maybe Bool -> Maybe Bool -> Bool
 mergeBoolFalse (Just b) _ = b
 mergeBoolFalse Nothing (Just b) = b
 mergeBoolFalse Nothing Nothing = False
-
-mergeCommitHash ::
-  (HasCallStack) =>
-  Maybe OsString ->
-  Maybe OsString ->
-  Eff es OsString
-mergeCommitHash (Just n) _ = pure n
-mergeCommitHash Nothing (Just n) = pure n
-mergeCommitHash Nothing Nothing =
-  throwString "Commit hash must be specified by CLI args or Toml config."
 
 mergeRepoNames ::
   (HasCallStack) =>

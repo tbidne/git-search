@@ -15,8 +15,9 @@ import Effectful.FileSystem.HandleWriter.Static qualified as HW
 import Effectful.FileSystem.PathReader.Static qualified as PR
 import Git.Search qualified
 import Git.Search.Config qualified as Config
-import Git.Search.Config.Args (Args)
+import Git.Search.Config.Args (Args (command))
 import Git.Search.Config.Args qualified
+import Git.Search.Config.Command (Command (SearchCommit))
 import Git.Search.Config.Data (WithDisabled (Disabled, With))
 import Git.Search.Config.Toml (Toml)
 import Git.Search.Prelude
@@ -43,10 +44,10 @@ runSearch = withHiddenInput $ do
 
   env <- Config.toEnv args mToml
 
-  branches <-
-    race'
-      (Git.Search.search env)
-      drainStdinLoop
+  let cmdAction = case args.command of
+        SearchCommit commit -> Git.Search.searchCommit env commit
+
+  branches <- race' cmdAction drainStdinLoop
 
   case branches of
     [] -> putStrLn "No branches found."

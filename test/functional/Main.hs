@@ -71,10 +71,10 @@ testSearchNixpkgs = testCase "Finds branches in nixos/nixpkgs" $ do
         decodeLenient cfgPath,
         "--debug",
         "on",
-        "--commit",
-        "c190319055bb5c31acfd7bb8356ce9ab05cb2b36",
         "--name",
-        "nixos/nixpkgs"
+        "nixos/nixpkgs",
+        "search-commit",
+        "c190319055bb5c31acfd7bb8356ce9ab05cb2b36"
       ]
 
     assertResults rs = for_ expected $ \e -> do

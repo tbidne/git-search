@@ -12,7 +12,7 @@ import Effectful.FileSystem.PathWriter.Static qualified as PW
 import FileSystem.Path qualified as FS.Path
 import Git.Search.Config.Args (Args)
 import Git.Search.Config.Data
-  ( Config (MkConfig, branches, clean, commit, debug, repo),
+  ( Config (MkConfig, branches, clean, debug, repo),
     ConfigPhase (ConfigPhaseEnv),
     Protocol (ProtocolHttps, ProtocolSsh),
     RepoConfig (domain, name, protocol),
@@ -73,7 +73,6 @@ toEnv args mToml = do
           MkConfig
             { branches = merged.coreConfig.branches,
               clean = merged.coreConfig.clean,
-              commit = merged.coreConfig.commit,
               debug = merged.coreConfig.debug,
               repo
             }

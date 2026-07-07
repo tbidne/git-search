@@ -3,12 +3,6 @@
 # Repository configuration.
 [repository]
 
-# Commit for which to search. Generally this will be supplied on the CLI,
-# since there are not many situations where we want the same commit fixed in
-# the config. Still, there may be some situations where a default commit
-# makes sense.
-commit = 'c190319'
-
 # Domain to use.
 domain = 'github.com'
 

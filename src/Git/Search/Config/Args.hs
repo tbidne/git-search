@@ -12,8 +12,9 @@ import Data.Text qualified as T
 import Data.Version (showVersion)
 import Effectful.Optparse.Static qualified as EOA
 import Git.Search.Config.Args.TH qualified as TH
+import Git.Search.Config.Command (Command (SearchCommit))
 import Git.Search.Config.Data
-  ( Config (MkConfig, branches, clean, commit, debug, repo),
+  ( Config (MkConfig, branches, clean, debug, repo),
     ConfigPhase (ConfigPhaseArgs),
     Protocol (ProtocolHttps, ProtocolSsh),
     RepoConfig (MkRepoConfig, domain, name, protocol),
@@ -21,7 +22,9 @@ import Git.Search.Config.Data
   )
 import Git.Search.Prelude
 import Options.Applicative
-  ( Mod,
+  ( CommandFields,
+    InfoMod,
+    Mod,
     OptionFields,
     Parser,
     ParserInfo
@@ -46,7 +49,8 @@ import Paths_git_search qualified as Paths
 import System.Info qualified as Info
 
 data Args = MkArgs
-  { config :: Maybe (WithDisabled OsPath),
+  { command :: Command,
+    config :: Maybe (WithDisabled OsPath),
     coreConfig :: Config ConfigPhaseArgs
   }
 
@@ -82,7 +86,7 @@ getArgs = EOA.execParser parserInfoArgs
           mkExample
             [ "1. Running for the first time:",
               "",
-              "$ git-search --commit c190319 --name nixos/nixpkgs",
+              "$ git-search --name nixos/nixpkgs search-commit c190319",
               "Cloning https://github.com/nixos/nixpkgs...",
               "Clone finished: 8 minutes, 55 seconds",
               "Searching for hash f61423d...",
@@ -96,7 +100,7 @@ getArgs = EOA.execParser parserInfoArgs
           mkExample
             [ "2. Running a second time, using the cache:",
               "",
-              "$ git-search --commit c190319 --name nixos/nixpkgs",
+              "$ git-search --name nixos/nixpkgs search-commit c190319",
               "Fetching https://github.com/nixos/nixpkgs...",
               "Fetch finished: 1 second",
               "...",
@@ -109,7 +113,7 @@ getArgs = EOA.execParser parserInfoArgs
           mkExample
             [ "3. Filtering via --branches:",
               "",
-              "$ git-search --commit c190319 --name nixos/nixpkgs --branches '*master *unstable'",
+              "$ git-search --name nixos/nixpkgs --branches '*master *unstable' search-commit c190319",
               "...",
               "Found 3 branches:",
               " - origin/master",
@@ -140,18 +144,20 @@ argsParser = do
     <**> OA.helper
   where
     p = do
-      ~(branches, commit, domain, name, protocol) <- parseRepo
+      ~(branches, domain, name, protocol) <- parseRepo
 
       ~(clean, config, debug) <- parseMisc
 
+      command <- commandParser
+
       pure
         $ MkArgs
-          { config,
+          { command,
+            config,
             coreConfig =
               MkConfig
                 { branches,
                   clean,
-                  commit,
                   debug,
                   repo =
                     MkRepoConfig
@@ -164,9 +170,8 @@ argsParser = do
 
     parseRepo =
       OA.parserOptionGroup "Repository options:"
-        $ (,,,,)
+        $ (,,,)
         <$> branchesParser
-        <*> commitParser
         <*> domainParser
         <*> nameParser
         <*> protocolParser
@@ -215,6 +220,17 @@ cleanParser =
             ]
       ]
 
+commandParser :: Parser Command
+commandParser =
+  OA.hsubparser
+    ( mconcat
+        [ mkCommand "search-commit" searchCommitParser searchCommitHelp
+        ]
+    )
+  where
+    searchCommitParser = SearchCommit <$> commitParser
+    searchCommitHelp = mkCmdDescStr "Searches for a commit."
+
 configParser :: Parser (Maybe (WithDisabled OsPath))
 configParser =
   OA.optional
@@ -255,14 +271,12 @@ domainParser =
         mkHelp "Repository domain. Defaults to github.com."
       ]
 
-commitParser :: Parser (Maybe OsString)
+commitParser :: Parser OsString
 commitParser =
-  OA.optional
-    $ OA.option
-      osString
+  OA.argument
+    osString
     $ mconcat
-      [ OA.long "commit",
-        OA.metavar "HASH",
+      [ OA.metavar "HASH",
         mkHelp "Commit hash for which we want to search."
       ]
 
@@ -367,3 +381,25 @@ switchParser mods =
         other -> fail $ "Unrecognized: " ++ other
 
     mods' = mods <> OA.metavar "(on | off)"
+
+mkCommand :: String -> Parser a -> InfoMod a -> Mod CommandFields a
+mkCommand cmdTxt parser helpTxt = OA.command cmdTxt (OA.info parser helpTxt)
+
+mkCmdDescStr :: String -> InfoMod a
+mkCmdDescStr = mkCmdDesc . Chunk.paragraph
+
+mkCmdDescStrNoLine :: String -> InfoMod a
+mkCmdDescStrNoLine = mkCmdDescNoLine . Chunk.paragraph
+
+mkCmdDesc :: Chunk Doc -> InfoMod a
+mkCmdDesc =
+  OA.progDescDoc
+    . fmap (<> Pretty.hardline)
+    . Chunk.unChunk
+
+-- For the last command, so we do not append two lines (there is an automatic
+-- one at the end).
+mkCmdDescNoLine :: Chunk Doc -> InfoMod a
+mkCmdDescNoLine =
+  OA.progDescDoc
+    . Chunk.unChunk
