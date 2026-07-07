@@ -44,7 +44,7 @@ deleteCache env cacheType = case cacheType of
     when env.coreConfig.debug $ do
       putStrLn $ "Deleting cache: " <> decodeLenient cacheDir
 
-    PW.removeDirectoryIfExists_ cacheDir
+    PW.removePathForcibly cacheDir
   DeleteCacheLocal repoPath -> do
     let repoDir = repoPathToOsP repoPath
         repoDirStr = decodeLenient repoDir

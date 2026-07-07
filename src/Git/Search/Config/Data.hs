@@ -15,33 +15,11 @@ module Git.Search.Config.Data
 
     -- * Phases
     ConfigPhase (..),
-
-    -- * Disabling
-    WithDisabled (..),
-    disabledParser,
   )
 where
 
+import Git.Search.Config.WithDisabled
 import Git.Search.Prelude
-
-data WithDisabled a
-  = -- | The field.
-    With a
-  | -- | Disabled.
-    Disabled
-  deriving stock (Eq, Functor, Show)
-
-instance (DecodeTOML a) => DecodeTOML (WithDisabled a) where
-  tomlDecoder = parseText <|> With <$> tomlDecoder
-    where
-      parseText = do
-        tomlDecoder @Text >>= \case
-          "off" -> pure Disabled
-          other -> fail $ "Expected 'off', received: " <> unpack other
-
-disabledParser :: (Applicative f) => Text -> f a -> f (WithDisabled a)
-disabledParser "off" _ = pure Disabled
-disabledParser _ fx = With <$> fx
 
 data ConfigPhase
   = ConfigPhaseArgs
@@ -62,16 +40,22 @@ instance DecodeTOML Protocol where
 
 type RepoConfigF :: ConfigPhase -> Type -> Type
 type family RepoConfigF p a where
-  RepoConfigF ConfigPhaseArgs a = Maybe a
+  RepoConfigF ConfigPhaseArgs a = Maybe (WithDisabled a)
   RepoConfigF ConfigPhaseToml a = Maybe a
   RepoConfigF ConfigPhaseMerged a = a
+
+type NameF :: ConfigPhase -> Type
+type family NameF p where
+  NameF ConfigPhaseArgs = Maybe (WithDisabled OsString)
+  NameF ConfigPhaseToml = Maybe OsString
+  NameF ConfigPhaseMerged = Maybe OsString
 
 type RepoConfig :: ConfigPhase -> Type
 data RepoConfig p = MkRepoConfig
   { -- | Domain e.g. github.com
     domain :: RepoConfigF p OsString,
     -- | Repo name e.g. org/repo
-    name :: Maybe OsString,
+    name :: NameF p,
     -- | Protocol e.g. https
     protocol :: RepoConfigF p Protocol
   }

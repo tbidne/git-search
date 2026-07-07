@@ -17,11 +17,9 @@ import Git.Search qualified
 import Git.Search.Config qualified as Config
 import Git.Search.Config.Args (Args)
 import Git.Search.Config.Args qualified
-import Git.Search.Config.Data
-  ( Command (DeleteCache, SearchCommit),
-    WithDisabled (Disabled, With),
-  )
+import Git.Search.Config.Data (Command (DeleteCache, SearchCommit))
 import Git.Search.Config.Toml (Toml)
+import Git.Search.Config.WithDisabled (WithDisabled (Disabled, With))
 import Git.Search.Prelude
 import System.IO qualified as IO
 import TOML qualified

@@ -13,9 +13,10 @@ import Git.Search.Config.Data
     ConfigPhase (ConfigPhaseMerged),
     Protocol (ProtocolHttps),
     RepoConfig (MkRepoConfig, domain, name, protocol),
-    WithDisabled (Disabled, With),
   )
 import Git.Search.Config.Toml (Toml (coreConfig))
+import Git.Search.Config.WithDisabled (WithDisabled (Disabled, With))
+import Git.Search.Config.WithDisabled qualified as WD
 import Git.Search.Prelude
 
 newtype MergedConfig = MkMergedConfig {coreConfig :: Config ConfigPhaseMerged}
@@ -38,9 +39,17 @@ mergeConfig args Nothing =
                 debug = mergeBoolFalse args.coreConfig.debug Nothing,
                 repo =
                   MkRepoConfig
-                    { domain = mkDomain args.coreConfig.repo.domain,
+                    { domain =
+                        mergeWD
+                          mkDomain
+                          args.coreConfig.repo.domain
+                          Nothing,
                       name,
-                      protocol = mkProtocol args.coreConfig.repo.protocol
+                      protocol =
+                        mergeWD
+                          mkProtocol
+                          args.coreConfig.repo.protocol
+                          Nothing
                     }
               }
         }
@@ -65,14 +74,16 @@ mergeConfig args (Just toml) =
                 repo =
                   MkRepoConfig
                     { domain =
-                        mkDomain
-                          $ args.coreConfig.repo.domain
-                          <|> toml.coreConfig.repo.domain,
+                        mergeWD
+                          mkDomain
+                          args.coreConfig.repo.domain
+                          toml.coreConfig.repo.domain,
                       name,
                       protocol =
-                        mkProtocol
-                          $ args.coreConfig.repo.protocol
-                          <|> toml.coreConfig.repo.protocol
+                        mergeWD
+                          mkProtocol
+                          args.coreConfig.repo.protocol
+                          toml.coreConfig.repo.protocol
                     }
               }
         }
@@ -83,10 +94,11 @@ mergeBoolFalse Nothing (Just b) = b
 mergeBoolFalse Nothing Nothing = False
 
 mergeRepoNames ::
-  Maybe OsString ->
+  Maybe (WithDisabled OsString) ->
   Maybe OsString ->
   Maybe OsString
-mergeRepoNames m n = m <|> n
+mergeRepoNames (Just Disabled) _ = Nothing
+mergeRepoNames a b = WD.toMaybe a <|> b
 
 mergeBranches ::
   Maybe (WithDisabled [OsString]) ->
@@ -99,6 +111,14 @@ mergeBranches (Just (With branches)) _ _ = branches
 mergeBranches _ _ Nothing = []
 mergeBranches Nothing (Just branchMap) (Just repoName) =
   Map.findWithDefault [] repoName branchMap
+
+mergeWD ::
+  (Maybe a -> a) ->
+  Maybe (WithDisabled a) ->
+  Maybe a ->
+  a
+mergeWD f (Just Disabled) _ = f Nothing
+mergeWD f a b = f $ WD.toMaybe a <|> b
 
 mkDomain :: Maybe OsString -> OsString
 mkDomain = fromMaybe [osstr|github.com|]

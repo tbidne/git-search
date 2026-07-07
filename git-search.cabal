@@ -49,6 +49,7 @@ library
     Git.Search.Config.Data
     Git.Search.Config.Merged
     Git.Search.Config.Toml
+    Git.Search.Config.WithDisabled
     Git.Search.Prelude
     Git.Search.Runner
 

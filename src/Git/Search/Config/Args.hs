@@ -19,8 +19,9 @@ import Git.Search.Config.Data
     ConfigPhase (ConfigPhaseArgs),
     Protocol (ProtocolHttps, ProtocolSsh),
     RepoConfig (MkRepoConfig, domain, name, protocol),
-    WithDisabled (Disabled, With),
   )
+import Git.Search.Config.WithDisabled (WithDisabled)
+import Git.Search.Config.WithDisabled qualified as WD
 import Git.Search.Prelude
 import Options.Applicative
   ( CommandFields,
@@ -123,21 +124,6 @@ getArgs = EOA.execParser parserInfoArgs
             ]
         ]
 
-    mkExample :: NonEmpty String -> Chunk Doc
-    mkExample = identPara 2 5
-
-    identPara :: Int -> Int -> NonEmpty String -> Chunk Doc
-    identPara hIndent lIndent (h :| xs) =
-      Chunk.vcatChunks
-        . (\ys -> toChunk hIndent h : ys)
-        . fmap (toChunk lIndent)
-        $ xs
-
-    toChunk _ "" = line
-    toChunk i other = fmap (Pretty.indent i) . Chunk.stringChunk $ other
-
-    line = Chunk (Just Pretty.softline)
-
 argsParser :: Parser Args
 argsParser = do
   p
@@ -202,11 +188,9 @@ branchesParser =
   where
     r = do
       s <- OA.str
-      case s of
-        "off" -> pure Disabled
-        other -> do
-          let strs = fmap T.strip . T.words $ other
-          With <$> traverse (encodeFail . unpack) strs
+      WD.disabledParser s $ do
+        let strs = fmap T.strip . T.words $ s
+        traverse (encodeFail . unpack) strs
 
 cleanParser :: Parser (Maybe Bool)
 cleanParser =
@@ -259,9 +243,7 @@ configParser =
   where
     r = do
       s <- OA.str
-      case s of
-        "off" -> pure Disabled
-        other -> With <$> encodeValidFail other
+      WD.disabledParser s $ encodeValidFail (unpack s)
 
 debugParser :: Parser (Maybe Bool)
 debugParser =
@@ -271,16 +253,20 @@ debugParser =
         mkHelpNoLine "Enables additional logging."
       ]
 
-domainParser :: Parser (Maybe OsString)
+domainParser :: Parser (Maybe (WithDisabled OsString))
 domainParser =
   OA.optional
     $ OA.option
-      osString
+      r
     $ mconcat
       [ OA.long "domain",
-        OA.metavar "STR",
+        OA.metavar "(STR | off)",
         mkHelp "Repository domain. Defaults to github.com."
       ]
+  where
+    r = do
+      s <- OA.str
+      WD.disabledParser s (encodeFail . unpack $ s)
 
 commitParser :: Parser Commit
 commitParser =
@@ -291,11 +277,11 @@ commitParser =
         mkHelp "Commit hash for which we want to search."
       ]
 
-nameParser :: Parser (Maybe OsString)
+nameParser :: Parser (Maybe (WithDisabled OsString))
 nameParser =
   OA.optional
     $ OA.option
-      osString
+      r
     $ mconcat
       [ OA.long "name",
         OA.metavar "STR",
@@ -306,23 +292,28 @@ nameParser =
               "github.com/nixos/nixpkgs. Mutually exclusive with --repo."
             ]
       ]
+  where
+    r = do
+      s <- OA.str
+      WD.disabledParser s (encodeFail . unpack $ s)
 
-protocolParser :: Parser (Maybe Protocol)
+protocolParser :: Parser (Maybe (WithDisabled Protocol))
 protocolParser =
   OA.optional
     $ OA.option
       r
     $ mconcat
       [ OA.long "protocol",
-        OA.metavar "(https | ssh)",
+        OA.metavar "(https | ssh | off)",
         mkHelpNoLine "Protocol to use. Defaults to https."
       ]
   where
-    r =
-      OA.str >>= \case
+    r = do
+      s <- OA.str
+      WD.disabledParser s $ case s of
         "https" -> pure ProtocolHttps
         "ssh" -> pure ProtocolSsh
-        other -> fail $ "Unknown protocol: " ++ other
+        other -> fail $ "Unknown protocol: " ++ unpack other
 
 version :: Parser (a -> a)
 version = OA.infoOption versLong (OA.long "version" <> OA.short 'v' <> OA.hidden)
@@ -414,3 +405,20 @@ mkCmdDescNoLine :: Chunk Doc -> InfoMod a
 mkCmdDescNoLine =
   OA.progDescDoc
     . Chunk.unChunk
+
+mkExample :: NonEmpty String -> Chunk Doc
+mkExample = identPara 2 5
+
+identPara :: Int -> Int -> NonEmpty String -> Chunk Doc
+identPara hIndent lIndent (h :| xs) =
+  Chunk.vcatChunks
+    . (\ys -> toChunk hIndent h : ys)
+    . fmap (toChunk lIndent)
+    $ xs
+
+toChunk :: Int -> String -> Chunk Doc
+toChunk _ "" = line
+toChunk i other = fmap (Pretty.indent i) . Chunk.stringChunk $ other
+
+line :: Chunk Doc
+line = Chunk (Just Pretty.softline)
