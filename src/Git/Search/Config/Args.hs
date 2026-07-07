@@ -81,6 +81,12 @@ getArgs = EOA.execParser parserInfoArgs
                 "In general, the repository is cloned to a cache the first ",
                 "time, so that subsequent runs are faster."
               ],
+          Chunk.paragraph
+            $ mconcat
+              [ "In the option descriptions, note that 'off' disables ",
+                "CLI and TOML configuration for that option i.e. the ",
+                "default behavior is used."
+              ],
           Chunk.paragraph "Examples:",
           mkExample
             [ "1. Search a git repository for branches with a commit hash:",
@@ -158,7 +164,7 @@ branchesParser =
       r
     $ mconcat
       [ OA.long "branches",
-        OA.metavar "STR",
+        OA.metavar "(STR | off)",
         mkHelp
           $ mconcat
             [ "Filters the search via space-separated branches e.g. ",
@@ -283,7 +289,7 @@ nameParser =
       r
     $ mconcat
       [ OA.long "name",
-        OA.metavar "STR",
+        OA.metavar "(STR | off)",
         mkHelp
           $ mconcat
             [ "Repository name. This should be the organization and repo ",
