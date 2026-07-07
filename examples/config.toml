@@ -14,11 +14,11 @@ protocol = 'https'
 
 # Map of names to branch filters. If the given name (either toml or CLI args)
 # matches an entry in the map, then we filter with its branches.
-[[branchMap]]
+[[repository.branchMap]]
 name = 'nixos/nixpkgs'
 branches = [ '*master', '*unstable*' ]
 
-[[branchMap]]
+[[repository.branchMap]]
 name = 'org/repo'
 branches = [
   'origin/master',

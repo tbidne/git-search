@@ -17,9 +17,9 @@ newtype Toml = MkToml {coreConfig :: Config ConfigPhaseToml}
 
 instance DecodeTOML Toml where
   tomlDecoder = do
-    branches <- decodeBranches
-    (domain, name, protocol) <- decodeRepo
-    (clean, logColor, logLevel) <- decodeMisc
+    (logColor, logLevel) <- decodeLogging
+    (domain, name, protocol, branches) <- decodeRepo
+    clean <- decodeMisc
 
     pure
       MkToml
@@ -38,25 +38,28 @@ instance DecodeTOML Toml where
               }
         }
     where
-      decodeBranches = getFieldOptWith decodeOsStrMap "branchMap"
+      decodeLogging =
+        fmap (fromMaybe (Nothing, Nothing))
+          $ flip getFieldOptWith "logging"
+          $ do
+            (,)
+              <$> getFieldOptWith decodeSwitch "log-color"
+              <*> getFieldOptWith tomlDecoder "log-level"
 
       decodeRepo =
-        fmap (fromMaybe (Nothing, Nothing, Nothing))
+        fmap (fromMaybe (Nothing, Nothing, Nothing, Nothing))
           $ flip getFieldOptWith "repository"
           $ do
-            (,,)
+            (,,,)
               <$> getFieldOptWith decodeOsString "domain"
               <*> getFieldOptWith (MkRepoName <$> decodeOsString) "name"
               <*> getFieldOptWith tomlDecoder "protocol"
+              <*> getFieldOptWith decodeOsStrMap "branchMap"
 
       decodeMisc =
-        fmap (fromMaybe (Nothing, Nothing, Nothing))
+        fmap (fromMaybe Nothing)
           $ flip getFieldOptWith "miscellaneous"
-          $ do
-            (,,)
-              <$> getFieldOptWith decodeSwitch "clean"
-              <*> getFieldOptWith decodeSwitch "log-color"
-              <*> getFieldOptWith tomlDecoder "log-level"
+          $ getFieldOptWith decodeSwitch "clean"
 
 decodeOsStrMap :: Decoder (Map OsString [OsString])
 decodeOsStrMap = do

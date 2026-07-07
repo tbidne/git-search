@@ -124,9 +124,9 @@ argsParser = do
     <**> OA.helper
   where
     p = do
+      ~(logColor, logLevel) <- parseLogging
       ~(branches, domain, name, protocol) <- parseRepo
-
-      ~(clean, config, logColor, logLevel) <- parseMisc
+      ~(clean, config) <- parseMisc
 
       command <- commandParser
 
@@ -149,6 +149,12 @@ argsParser = do
                 }
           }
 
+    parseLogging =
+      OA.parserOptionGroup "Logging options:"
+        $ (,)
+        <$> logColorParser
+        <*> logLevelParser
+
     parseRepo =
       OA.parserOptionGroup "Repository options:"
         $ (,,,)
@@ -159,11 +165,9 @@ argsParser = do
 
     parseMisc =
       OA.parserOptionGroup "Miscellaneous options:"
-        $ (,,,)
+        $ (,)
         <$> cleanParser
         <*> configParser
-        <*> logColorParser
-        <*> logLevelParser
 
 branchesParser :: Parser (Maybe (WithDisabled [OsString]))
 branchesParser =
@@ -235,7 +239,7 @@ configParser =
     $ mconcat
       [ OA.long "config",
         OA.metavar "(PATH | off)",
-        mkHelp
+        mkHelpNoLine
           $ mconcat
             [ "Path to TOML config. We also look in XDG config e.g. ",
               "~/.config/git-search/config.toml."
