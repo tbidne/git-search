@@ -20,6 +20,7 @@ import Git.Search.Config.Args qualified
 import Git.Search.Config.Data (Command (DeleteCache, SearchCommit))
 import Git.Search.Config.Toml (Toml)
 import Git.Search.Config.WithDisabled (WithDisabled (Disabled, With))
+import Git.Search.Logging qualified as Logging
 import Git.Search.Prelude
 import System.IO qualified as IO
 import TOML qualified
@@ -44,24 +45,24 @@ runSearch = withHiddenInput $ do
 
   (env, cmd) <- Config.toEnv args mToml
 
-  let cmdAction = case cmd of
-        DeleteCache cmdArgs -> Git.Search.deleteCache env cmdArgs
-        SearchCommit cmdArgs -> do
-          branches <- Git.Search.searchCommit env cmdArgs
-          case branches of
-            [] -> putStrLn "No branches found."
-            bs@(_ : _) -> do
-              let numBranches = length bs
-                  formatted = mconcat $ fmap ("\n - " <>) bs
-              putStrLn
-                $ mconcat
-                  [ "Found ",
-                    show numBranches,
-                    " branches:",
-                    unpack formatted
-                  ]
-
-  Async.race_ cmdAction drainStdinLoop
+  runReader env $ do
+    let cmdAction = case cmd of
+          DeleteCache cmdArgs -> Git.Search.deleteCache cmdArgs
+          SearchCommit cmdArgs -> do
+            branches <- Git.Search.searchCommit cmdArgs
+            case branches of
+              [] -> Logging.logSuccess "No branches found."
+              bs@(_ : _) -> do
+                let numBranches = length bs
+                    formatted = mconcat $ fmap ("\n - " <>) bs
+                Logging.logSuccess
+                  $ mconcat
+                    [ "Found ",
+                      show numBranches,
+                      " branches:",
+                      unpack formatted
+                    ]
+    Async.race_ cmdAction drainStdinLoop
 
 getToml ::
   ( HasCallStack,

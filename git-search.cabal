@@ -28,6 +28,7 @@ common common-lang
     ApplicativeDo
     DuplicateRecordFields
     ExplicitNamespaces
+    NoFieldSelectors
     NoImplicitPrelude
     OverloadedRecordDot
     OverloadedStrings
@@ -50,6 +51,8 @@ library
     Git.Search.Config.Merged
     Git.Search.Config.Toml
     Git.Search.Config.WithDisabled
+    Git.Search.Logging
+    Git.Search.Logging.Data
     Git.Search.Prelude
     Git.Search.Runner
 

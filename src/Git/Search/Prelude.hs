@@ -46,7 +46,7 @@ import Data.List.NonEmpty as X (NonEmpty ((:|)))
 import Data.Map.Strict as X (Map)
 import Data.Maybe as X (Maybe (Just, Nothing), fromMaybe, maybe)
 import Data.Monoid as X (Monoid, mconcat, mempty)
-import Data.Ord as X (Ord, (<), (>))
+import Data.Ord as X (Ord, (<), (<=), (>))
 import Data.Semigroup as X (Semigroup, (<>))
 import Data.String as X (IsString, String, fromString)
 import Data.Text as X (Text, pack, unpack)
@@ -61,6 +61,7 @@ import Effectful.FileSystem.PathReader.Static as X (PathReader, runPathReader)
 import Effectful.FileSystem.PathWriter.Static as X (PathWriter, runPathWriter)
 import Effectful.Optparse.Static as X (Optparse, osString, runOptparse)
 import Effectful.Process as X (Process, runProcess)
+import Effectful.Reader.Static as X (Reader, ask, asks, runReader)
 import Effectful.Terminal.Dynamic as X
   ( Terminal,
     putStrLn,

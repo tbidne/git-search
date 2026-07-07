@@ -15,13 +15,14 @@ import Git.Search.Config.Args.TH qualified as TH
 import Git.Search.Config.Data
   ( Command (DeleteCache, SearchCommit),
     Commit (MkCommit),
-    Config (MkConfig, branches, clean, debug, repo),
+    Config (MkConfig, branches, clean, logColor, logLevel, repo),
     ConfigPhase (ConfigPhaseArgs),
     Protocol (ProtocolHttps, ProtocolSsh),
     RepoConfig (MkRepoConfig, domain, name, protocol),
   )
 import Git.Search.Config.WithDisabled (WithDisabled)
 import Git.Search.Config.WithDisabled qualified as WD
+import Git.Search.Logging.Data (LogLevel (LogLevelDebug, LogLevelInfo))
 import Git.Search.Prelude
 import Options.Applicative
   ( CommandFields,
@@ -69,30 +70,22 @@ getArgs = EOA.execParser parserInfoArgs
           infoFailureCode = 1,
           infoPolicy = Intersperse
         }
-    headerTxt = Just "Git-search: Searches a git repository for commit hashes."
+    headerTxt = Just "Git-search: Searches git repositories."
     footerTxt = Just $ fromString versShort
 
     desc =
       Chunk.vsepChunks
         [ Chunk.paragraph
             $ mconcat
-              [ "Given a git repository and commit hash, returns a list of ",
-                "branches containing that hash."
-              ],
-          Chunk.paragraph
-            $ mconcat
-              [ "Initially, the git repository is cloned and cached. Subsequent ",
-                "searches invoke 'fetch' for performance."
+              [ "Git-search allows searching a remote repository for info. ",
+                "In general, the repository is cloned to a cache the first ",
+                "time, so that subsequent runs are faster."
               ],
           Chunk.paragraph "Examples:",
           mkExample
-            [ "1. Running for the first time:",
+            [ "1. Search a git repository for branches with a commit hash:",
               "",
               "$ git-search --name nixos/nixpkgs search-commit c190319",
-              "Cloning https://github.com/nixos/nixpkgs...",
-              "Clone finished: 8 minutes, 55 seconds",
-              "Searching for hash f61423d...",
-              "Search finished: 3 minutes, 57 seconds",
               "Found 14 branches:",
               " - origin/master",
               " - origin/nixos-unstable",
@@ -100,23 +93,9 @@ getArgs = EOA.execParser parserInfoArgs
               " ..."
             ],
           mkExample
-            [ "2. Running a second time, using the cache:",
-              "",
-              "$ git-search --name nixos/nixpkgs search-commit c190319",
-              "Fetching https://github.com/nixos/nixpkgs...",
-              "Fetch finished: 1 second",
-              "...",
-              "Found 14 branches:",
-              " - origin/master",
-              " - origin/nixos-unstable",
-              " - origin/nixos-unstable-small",
-              " ..."
-            ],
-          mkExample
-            [ "3. Filtering via --branches:",
+            [ "2. Filtering via --branches:",
               "",
               "$ git-search --name nixos/nixpkgs --branches '*master *unstable' search-commit c190319",
-              "...",
               "Found 3 branches:",
               " - origin/master",
               " - origin/nixos-unstable",
@@ -133,7 +112,7 @@ argsParser = do
     p = do
       ~(branches, domain, name, protocol) <- parseRepo
 
-      ~(clean, config, debug) <- parseMisc
+      ~(clean, config, logColor, logLevel) <- parseMisc
 
       command <- commandParser
 
@@ -145,7 +124,8 @@ argsParser = do
               MkConfig
                 { branches,
                   clean,
-                  debug,
+                  logColor,
+                  logLevel,
                   repo =
                     MkRepoConfig
                       { domain,
@@ -165,10 +145,11 @@ argsParser = do
 
     parseMisc =
       OA.parserOptionGroup "Miscellaneous options:"
-        $ (,,)
+        $ (,,,)
         <$> cleanParser
         <*> configParser
-        <*> debugParser
+        <*> logColorParser
+        <*> logLevelParser
 
 branchesParser :: Parser (Maybe (WithDisabled [OsString]))
 branchesParser =
@@ -245,14 +226,6 @@ configParser =
       s <- OA.str
       WD.disabledParser s $ encodeValidFail (unpack s)
 
-debugParser :: Parser (Maybe Bool)
-debugParser =
-  switchParser
-    $ mconcat
-      [ OA.long "debug",
-        mkHelpNoLine "Enables additional logging."
-      ]
-
 domainParser :: Parser (Maybe (WithDisabled OsString))
 domainParser =
   OA.optional
@@ -267,6 +240,32 @@ domainParser =
     r = do
       s <- OA.str
       WD.disabledParser s (encodeFail . unpack $ s)
+
+logColorParser :: Parser (Maybe Bool)
+logColorParser =
+  switchParser
+    $ mconcat
+      [ OA.long "log-color",
+        mkHelp "Enables log colors. Defaults to 'on'."
+      ]
+
+logLevelParser :: Parser (Maybe (WithDisabled LogLevel))
+logLevelParser =
+  OA.optional
+    $ OA.option
+      r
+    $ mconcat
+      [ OA.long "log-level",
+        OA.metavar "(debug | info | off)",
+        mkHelpNoLine "Enables logging."
+      ]
+  where
+    r = do
+      s <- OA.str
+      WD.disabledParser s $ case s of
+        "debug" -> pure LogLevelDebug
+        "info" -> pure LogLevelInfo
+        other -> fail $ "Unrecognized log-level: " ++ show other
 
 commitParser :: Parser Commit
 commitParser =

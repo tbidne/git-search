@@ -19,6 +19,7 @@ module Git.Search.Config.Data
 where
 
 import Git.Search.Config.WithDisabled
+import Git.Search.Logging.Data (LogLevel)
 import Git.Search.Prelude
 
 data ConfigPhase
@@ -115,6 +116,13 @@ type family ConfigF p a where
   ConfigF ConfigPhaseMerged a = a
   ConfigF ConfigPhaseEnv a = a
 
+type ConfigMaybeF :: ConfigPhase -> Type -> Type
+type family ConfigMaybeF p a where
+  ConfigMaybeF ConfigPhaseArgs a = Maybe (WithDisabled a)
+  ConfigMaybeF ConfigPhaseToml a = Maybe a
+  ConfigMaybeF ConfigPhaseMerged a = Maybe a
+  ConfigMaybeF ConfigPhaseEnv a = Maybe a
+
 type Config :: ConfigPhase -> Type
 data Config p = MkConfig
   { -- | Branch filters.
@@ -122,8 +130,10 @@ data Config p = MkConfig
     -- | Performs a clean clone of the repo. Otherwise runs 'fetch' if the
     -- repo exists.
     clean :: ConfigF p Bool,
-    -- | Additional debug logging.
-    debug :: ConfigF p Bool,
+    -- | Log colors.
+    logColor :: ConfigF p Bool,
+    -- | Logging.
+    logLevel :: ConfigMaybeF p LogLevel,
     -- | Repo params.
     repo :: RepoF p
   }

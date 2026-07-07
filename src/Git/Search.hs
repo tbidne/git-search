@@ -23,39 +23,43 @@ import Git.Search.Config
   )
 import Git.Search.Config.Data
   ( Commit (unCommit),
-    Config (branches, clean, debug),
+    Config (branches, clean),
     DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
     RepoPath (unRepoPath),
     RepoSrc (unRepoSrc),
   )
+import Git.Search.Logging qualified as Logging
 import Git.Search.Prelude
 
 deleteCache ::
   ( HasCallStack,
     PathReader :> es,
     PathWriter :> es,
+    Reader Env :> es,
     Terminal :> es
   ) =>
-  Env ->
   DeleteCacheType ->
   Eff es ()
-deleteCache env cacheType = case cacheType of
-  DeleteCacheGlobal (MkPath cacheDir) -> do
-    when env.coreConfig.debug $ do
-      putStrLn $ "Deleting cache: " <> decodeLenient cacheDir
+deleteCache cacheType = do
+  case cacheType of
+    DeleteCacheGlobal (MkPath cacheDir) -> do
+      Logging.logDebug
+        $ "Deleting cache: "
+        <> decodeLenient cacheDir
 
-    PW.removePathForcibly cacheDir
-  DeleteCacheLocal repoPath -> do
-    let repoDir = repoPathToOsP repoPath
-        repoDirStr = decodeLenient repoDir
+      PW.removePathForcibly cacheDir
+    DeleteCacheLocal repoPath -> do
+      let repoDir = repoPathToOsP repoPath
+          repoDirStr = decodeLenient repoDir
 
-    when env.coreConfig.debug $ do
-      putStrLn $ "Deleting cache repo: " <> repoDirStr
+      Logging.logDebug
+        $ "Deleting cache repo: "
+        <> repoDirStr
 
-    exists <- PR.doesDirectoryExist repoDir
-    if exists
-      then PW.removeDirectory repoDir
-      else throwString $ "Cached repository does not exist: " <> repoDirStr
+      exists <- PR.doesDirectoryExist repoDir
+      if exists
+        then PW.removeDirectory repoDir
+        else throwString $ "Cached repository does not exist: " <> repoDirStr
 
 -- | Returns a list of branches matching the search criteria.
 searchCommit ::
@@ -63,31 +67,32 @@ searchCommit ::
     PathReader :> es,
     PathWriter :> es,
     Process :> es,
+    Reader Env :> es,
     Terminal :> es,
     Time :> es
   ) =>
-  Env ->
   (Commit, RepoPath, RepoSrc) ->
   Eff es [Text]
-searchCommit env (commit, repoPath, repoSrc) = do
-  cloneRepo env repoPath repoSrc
-  findBranches env commit repoPath
+searchCommit (commit, repoPath, repoSrc) = do
+  cloneRepo repoPath repoSrc
+  findBranches commit repoPath
 
 cloneRepo ::
   ( HasCallStack,
     PathReader :> es,
     PathWriter :> es,
     Process :> es,
+    Reader Env :> es,
     Terminal :> es,
     Time :> es
   ) =>
-  Env ->
   RepoPath ->
   RepoSrc ->
   Eff es ()
-cloneRepo env repoPath repoSrc = do
-  when env.coreConfig.debug $ do
-    putStrLn $ "Clone destination: " <> repoPathStr
+cloneRepo repoPath repoSrc = do
+  env <- ask @Env
+
+  Logging.logDebug $ "Clone destination: " <> repoPathStr
 
   exists <- PR.doesDirectoryExist repoPathOsP
 
@@ -106,15 +111,15 @@ cloneRepo env repoPath repoSrc = do
       runClone
   where
     runClone = do
-      putStrLn $ "Cloning " ++ repoSrcStr ++ "..."
-      timeStr <- withTiming_ $ runGit_ env cloneArgs
-      putStrLn $ "Clone finished: " ++ timeStr
+      Logging.logInfo $ "Cloning " ++ repoSrcStr ++ "..."
+      timeStr <- withTiming_ $ runGit_ cloneArgs
+      Logging.logInfo $ "Clone finished: " ++ timeStr
 
     runFetch = do
-      putStrLn $ "Fetching " ++ repoSrcStr ++ "..."
+      Logging.logInfo $ "Fetching " ++ repoSrcStr ++ "..."
       timeStr <- PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
-        withTiming_ $ runGit_ env fetchArgs
-      putStrLn $ "Fetch finished: " ++ timeStr
+        withTiming_ $ runGit_ fetchArgs
+      Logging.logInfo $ "Fetch finished: " ++ timeStr
 
     -- Our args will make a bare repo with no files e.g. git clone org/some-repo
     -- in ~/.cache/git-search will create
@@ -145,29 +150,37 @@ findBranches ::
   ( HasCallStack,
     PathWriter :> es,
     Process :> es,
+    Reader Env :> es,
     Terminal :> es,
     Time :> es
   ) =>
-  Env ->
   Commit ->
   RepoPath ->
   Eff es [Text]
-findBranches env commit repoPath = do
-  putStrLn $ "Searching for hash " ++ hashStr ++ "..."
+findBranches commit repoPath = do
+  env <- ask @Env
 
-  commitExists <- doesCommitExist env commit repoPath
+  Logging.logInfo
+    $ "Searching for hash "
+    ++ hashStr
+    ++ "..."
+
+  commitExists <- doesCommitExist commit repoPath
 
   if not commitExists
     then do
-      putStrLn "Commit does not exist."
+      Logging.logInfo
+        "Commit does not exist."
       pure []
     else do
       PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
-        (timeStr, out) <- withTiming $ runGitOut env gitArgs
-        putStrLn $ "Search finished: " ++ timeStr
+        (timeStr, out) <- withTiming $ runGitOut (gitArgs env.coreConfig.branches)
+        Logging.logInfo
+          $ "Search finished: "
+          ++ timeStr
         toText <$> decodeThrowM out
   where
-    gitArgs = case env.coreConfig.branches of
+    gitArgs branches = case branches of
       [] -> gitDefArgs
       bs@(_ : _) -> gitBranchArgs bs
 
@@ -195,16 +208,15 @@ doesCommitExist ::
   ( HasCallStack,
     PathWriter :> es,
     Process :> es,
+    Reader Env :> es,
     Terminal :> es
   ) =>
-  Env ->
   Commit ->
   RepoPath ->
   Eff es Bool
-doesCommitExist env commit repoPath = do
+doesCommitExist commit repoPath = do
   (ec, _, _) <-
-    PW.withCurrentDirectory (repoPathToOsP repoPath)
-      $ runGit env gitArgs
+    PW.withCurrentDirectory (repoPathToOsP repoPath) $ runGit gitArgs
   pure $ case ec of
     ExitSuccess -> True
     ExitFailure _ -> False
@@ -218,33 +230,33 @@ doesCommitExist env commit repoPath = do
 runGitOut ::
   ( HasCallStack,
     Process :> es,
+    Reader Env :> es,
     Terminal :> es
   ) =>
-  Env ->
   [OsString] ->
   Eff es OsString
-runGitOut env args = runProcOut env [osstr|git|] args
+runGitOut args = runProcOut [osstr|git|] args
 
 runGit ::
   ( HasCallStack,
     Process :> es,
+    Reader Env :> es,
     Terminal :> es
   ) =>
-  Env ->
   [OsString] ->
   Eff es (ExitCode, String, String)
-runGit env args = runProc env [osstr|git|] args
+runGit args = runProc [osstr|git|] args
 
 runGit_ ::
   ( HasCallStack,
     Process :> es,
+    Reader Env :> es,
     Terminal :> es
   ) =>
-  Env ->
   [OsString] ->
   Eff es ()
-runGit_ env args = do
-  (ec, _, err) <- runGit env args
+runGit_ args = do
+  (ec, _, err) <- runGit args
   case ec of
     ExitFailure _ -> do
       let argsStr = L.unwords $ fmap decodeLenient args
@@ -261,15 +273,15 @@ runGit_ env args = do
 runProcOut ::
   ( HasCallStack,
     Process :> es,
+    Reader Env :> es,
     Terminal :> es
   ) =>
-  Env ->
   OsString ->
   [OsString] ->
   Eff es OsString
-runProcOut env exe args = do
+runProcOut exe args = do
   let exeStr = decodeLenient exe
-  (ec, out, err) <- runProc env exe args
+  (ec, out, err) <- runProc exe args
   case ec of
     ExitFailure _ -> do
       let argsStr = L.unwords $ fmap decodeLenient args
@@ -288,38 +300,27 @@ runProcOut env exe args = do
 runProc ::
   ( HasCallStack,
     Process :> es,
+    Reader Env :> es,
     Terminal :> es
   ) =>
-  Env ->
   OsString ->
   [OsString] ->
   Eff es (ExitCode, String, String)
-runProc env exe args = do
+runProc exe args = do
   exeStr <- decodeThrowM exe
   argsStrs <- traverse decodeThrowM args
 
-  logDebug env $ do
-    let msg =
-          mconcat
-            [ "runProcess: ",
-              L.unwords (exeStr : argsStrs)
-            ]
-    pure msg
+  let msg =
+        mconcat
+          [ "runProcess: ",
+            L.unwords (exeStr : argsStrs)
+          ]
+
+  Logging.logDebug msg
 
   P.readProcessWithExitCode exeStr argsStrs name
   where
     name = "runProcess"
-
-logDebug ::
-  ( HasCallStack,
-    Terminal :> es
-  ) =>
-  Env ->
-  Eff es String ->
-  Eff es ()
-logDebug env mkStr = when env.coreConfig.debug $ do
-  s <- mkStr
-  putStrLn $ "[Debug]: " ++ s
 
 withTiming ::
   ( HasCallStack,

@@ -5,7 +5,7 @@ where
 
 import Data.Map.Strict qualified as Map
 import Git.Search.Config.Data
-  ( Config (MkConfig, branches, clean, debug, repo),
+  ( Config (MkConfig, branches, clean, logColor, logLevel, repo),
     ConfigPhase (ConfigPhaseToml),
     RepoConfig (MkRepoConfig, domain, name, protocol),
   )
@@ -18,7 +18,7 @@ instance DecodeTOML Toml where
   tomlDecoder = do
     branches <- decodeBranches
     (domain, name, protocol) <- decodeRepo
-    (clean, debug) <- decodeMisc
+    (clean, logColor, logLevel) <- decodeMisc
 
     pure
       MkToml
@@ -26,7 +26,8 @@ instance DecodeTOML Toml where
             MkConfig
               { branches,
                 clean,
-                debug,
+                logColor,
+                logLevel,
                 repo =
                   MkRepoConfig
                     { domain,
@@ -48,12 +49,13 @@ instance DecodeTOML Toml where
               <*> getFieldOptWith tomlDecoder "protocol"
 
       decodeMisc =
-        fmap (fromMaybe (Nothing, Nothing))
+        fmap (fromMaybe (Nothing, Nothing, Nothing))
           $ flip getFieldOptWith "miscellaneous"
           $ do
-            (,)
+            (,,)
               <$> getFieldOptWith decodeSwitch "clean"
-              <*> getFieldOptWith decodeSwitch "debug"
+              <*> getFieldOptWith decodeSwitch "log-color"
+              <*> getFieldOptWith tomlDecoder "log-level"
 
 decodeOsStrMap :: Decoder (Map OsString [OsString])
 decodeOsStrMap = do

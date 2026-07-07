@@ -9,7 +9,7 @@ where
 import Data.Map.Strict qualified as Map
 import Git.Search.Config.Args (Args (coreConfig))
 import Git.Search.Config.Data
-  ( Config (MkConfig, branches, clean, debug, repo),
+  ( Config (MkConfig, branches, clean, logColor, logLevel, repo),
     ConfigPhase (ConfigPhaseMerged),
     Protocol (ProtocolHttps),
     RepoConfig (MkRepoConfig, domain, name, protocol),
@@ -26,7 +26,7 @@ mergeConfig ::
   Maybe Toml ->
   MergedConfig
 mergeConfig args Nothing =
-  let name = mergeRepoNames args.coreConfig.repo.name Nothing
+  let name = mergeMaybe args.coreConfig.repo.name Nothing
    in MkMergedConfig
         { coreConfig =
             MkConfig
@@ -36,7 +36,9 @@ mergeConfig args Nothing =
                     Nothing
                     name,
                 clean = mergeBoolFalse args.coreConfig.clean Nothing,
-                debug = mergeBoolFalse args.coreConfig.debug Nothing,
+                logColor = mergeBoolTrue args.coreConfig.logColor Nothing,
+                logLevel =
+                  mergeMaybe args.coreConfig.logLevel Nothing,
                 repo =
                   MkRepoConfig
                     { domain =
@@ -54,7 +56,7 @@ mergeConfig args Nothing =
               }
         }
 mergeConfig args (Just toml) =
-  let name = mergeRepoNames args.coreConfig.repo.name toml.coreConfig.repo.name
+  let name = mergeMaybe args.coreConfig.repo.name toml.coreConfig.repo.name
    in MkMergedConfig
         { coreConfig =
             MkConfig
@@ -67,10 +69,14 @@ mergeConfig args (Just toml) =
                   mergeBoolFalse
                     args.coreConfig.clean
                     toml.coreConfig.clean,
-                debug =
-                  mergeBoolFalse
-                    args.coreConfig.debug
-                    toml.coreConfig.debug,
+                logColor =
+                  mergeBoolTrue
+                    args.coreConfig.logColor
+                    toml.coreConfig.logColor,
+                logLevel =
+                  mergeMaybe
+                    args.coreConfig.logLevel
+                    toml.coreConfig.logLevel,
                 repo =
                   MkRepoConfig
                     { domain =
@@ -93,12 +99,14 @@ mergeBoolFalse (Just b) _ = b
 mergeBoolFalse Nothing (Just b) = b
 mergeBoolFalse Nothing Nothing = False
 
-mergeRepoNames ::
-  Maybe (WithDisabled OsString) ->
-  Maybe OsString ->
-  Maybe OsString
-mergeRepoNames (Just Disabled) _ = Nothing
-mergeRepoNames a b = WD.toMaybe a <|> b
+mergeBoolTrue :: Maybe Bool -> Maybe Bool -> Bool
+mergeBoolTrue (Just b) _ = b
+mergeBoolTrue Nothing (Just b) = b
+mergeBoolTrue Nothing Nothing = True
+
+mergeMaybe :: Maybe (WithDisabled a) -> Maybe a -> Maybe a
+mergeMaybe (Just Disabled) _ = Nothing
+mergeMaybe a b = WD.toMaybe a <|> b
 
 mergeBranches ::
   Maybe (WithDisabled [OsString]) ->

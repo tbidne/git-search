@@ -108,8 +108,10 @@ mkArgs :: OsString -> [String]
 mkArgs cfgPath =
   [ "--config",
     decodeLenient cfgPath,
-    "--debug",
-    "on",
+    "--log-color",
+    "off",
+    "--log-level",
+    "debug",
     "--name",
     "nixos/nixpkgs",
     "search-commit",
