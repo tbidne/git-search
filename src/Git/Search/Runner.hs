@@ -68,11 +68,16 @@ runSearch = withHiddenInput $ do
       bs@(_ : _) -> do
         let numBranches = length bs
             formatted = mconcat $ fmap ("\n - " <>) bs
+            suffix =
+              if numBranches == 1
+                then " branch:"
+                else " branches:"
+
         Logging.logSuccess
           $ mconcat
             [ "Found ",
               show numBranches,
-              " branches:",
+              suffix,
               unpack formatted
             ]
 
