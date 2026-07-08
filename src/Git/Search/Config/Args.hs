@@ -15,15 +15,17 @@ import Git.Search.Config.Args.TH qualified as TH
 import Git.Search.Config.Data
   ( Command (DeleteCache, SearchCommit, SearchPullRequest),
     Config (MkConfig, clean, logColor, logLevel, repo),
-    RepoConfig (MkRepoConfig, branches, domain, name, protocol),
+    RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
   )
 import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseArgs))
 import Git.Search.Config.WithDisabled (WithDisabled)
 import Git.Search.Config.WithDisabled qualified as WD
 import Git.Search.Data
   ( Commit (MkCommit),
+    Domain (MkDomain),
     Protocol (ProtocolHttps, ProtocolSsh),
     RepoName (MkRepoName),
+    RepoRemoteName (MkRepoRemoteName),
   )
 import Git.Search.Logging.Data (LogLevel (LogLevelDebug, LogLevelInfo))
 import Git.Search.Prelude
@@ -127,7 +129,7 @@ argsParser = do
   where
     p = do
       ~(logColor, logLevel) <- parseLogging
-      ~(branches, domain, name, protocol) <- parseRepo
+      ~(branches, domain, name, path, protocol, remoteName) <- parseRepo
       ~(clean, config) <- parseMisc
 
       command <- commandParser
@@ -146,7 +148,9 @@ argsParser = do
                       { branches,
                         domain,
                         name,
-                        protocol
+                        path,
+                        protocol,
+                        remoteName
                       }
                 }
           }
@@ -159,11 +163,13 @@ argsParser = do
 
     parseRepo =
       OA.parserOptionGroup "Repository options:"
-        $ (,,,)
+        $ (,,,,,)
         <$> branchesParser
         <*> domainParser
         <*> nameParser
+        <*> pathParser
         <*> protocolParser
+        <*> remoteNameParser
 
     parseMisc =
       OA.parserOptionGroup "Miscellaneous options:"
@@ -252,7 +258,7 @@ configParser =
       s <- OA.str
       WD.disabledParser s $ encodeValidFail (unpack s)
 
-domainParser :: Parser (Maybe (WithDisabled OsString))
+domainParser :: Parser (Maybe (WithDisabled Domain))
 domainParser =
   OA.optional
     $ OA.option
@@ -265,7 +271,7 @@ domainParser =
   where
     r = do
       s <- OA.str
-      WD.disabledParser s (encodeFail . unpack $ s)
+      WD.disabledParser s (fmap MkDomain . encodeFail . unpack $ s)
 
 logColorParser :: Parser (Maybe Bool)
 logColorParser =
@@ -311,6 +317,26 @@ pullRequestParser =
         mkHelp "Positive integer pull request id."
       ]
 
+pathParser :: Parser (Maybe (WithDisabled OsPath))
+pathParser =
+  OA.optional
+    $ OA.option
+      r
+    $ mconcat
+      [ OA.long "path",
+        OA.metavar "(PATH | off)",
+        mkHelp
+          $ mconcat
+            [ "Overrides the default cache location for the repository clone. ",
+              "Useful when the repo already exists on the file-system, and we ",
+              "do not want to create a duplicate."
+            ]
+      ]
+  where
+    r = do
+      s <- OA.str
+      WD.disabledParser s (encodeValidFail . unpack $ s)
+
 nameParser :: Parser (Maybe (WithDisabled RepoName))
 nameParser =
   OA.optional
@@ -348,6 +374,21 @@ protocolParser =
         "https" -> pure ProtocolHttps
         "ssh" -> pure ProtocolSsh
         other -> fail $ "Unknown protocol: " ++ unpack other
+
+remoteNameParser :: Parser (Maybe (WithDisabled RepoRemoteName))
+remoteNameParser =
+  OA.optional
+    $ OA.option
+      r
+    $ mconcat
+      [ OA.long "remote-name",
+        OA.metavar "(STR | off)",
+        mkHelp "Remote name for fetching. Defaults to 'origin'."
+      ]
+  where
+    r = do
+      s <- OA.str
+      WD.disabledParser s (MkRepoRemoteName <$> encodeFail (unpack s))
 
 version :: Parser (a -> a)
 version = OA.infoOption versLong (OA.long "version" <> OA.short 'v' <> OA.hidden)

@@ -27,6 +27,7 @@ common common-lang
   default-extensions:
     ApplicativeDo
     DeriveAnyClass
+    DerivingVia
     DuplicateRecordFields
     ExplicitNamespaces
     NoFieldSelectors
@@ -52,6 +53,7 @@ library
     Git.Search.Config.Merged
     Git.Search.Config.Phase
     Git.Search.Config.Toml
+    Git.Search.Config.Toml.Utils
     Git.Search.Config.WithDisabled
     Git.Search.Data
     Git.Search.Logging

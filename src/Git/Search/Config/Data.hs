@@ -6,43 +6,123 @@ module Git.Search.Config.Data
     -- * Command
     Command (..),
 
-    -- ** Toml
-    RepoMapVal (..),
-
     -- ** Env
     DeleteCacheType (..),
   )
 where
 
 import Git.Search.Config.Phase
+  ( ConfigF,
+    ConfigPhase
+      ( ConfigPhaseArgs,
+        ConfigPhaseEnv,
+        ConfigPhaseMerged,
+        ConfigPhaseToml
+      ),
+    ConfigWdMaybeF,
+  )
+import Git.Search.Config.Toml.Utils qualified as Toml.Utils
 import Git.Search.Config.WithDisabled (WithDisabled)
 import Git.Search.Data
   ( Commit,
+    Domain,
     Protocol,
     RepoName,
     RepoPath,
+    RepoRemoteName,
     RepoRemoteUri,
   )
 import Git.Search.Logging.Data (LogLevel)
 import Git.Search.Prelude
 
-type NameF :: ConfigPhase -> Type
-type family NameF p where
-  NameF ConfigPhaseArgs = Maybe (WithDisabled RepoName)
-  NameF ConfigPhaseToml = ()
-  NameF ConfigPhaseMerged = Maybe RepoName
+type BranchesF :: ConfigPhase -> Type
+type family BranchesF p where
+  BranchesF ConfigPhaseArgs = Maybe (WithDisabled [OsString])
+  BranchesF ConfigPhaseToml = [OsString]
+  BranchesF ConfigPhaseMerged = [OsString]
+  BranchesF ConfigPhaseEnv = [OsString]
 
+type DomainF :: ConfigPhase -> Type
+type family DomainF p where
+  DomainF ConfigPhaseArgs = Maybe (WithDisabled Domain)
+  DomainF ConfigPhaseToml = Maybe Domain
+  DomainF ConfigPhaseMerged = Domain
+  DomainF ConfigPhaseEnv = ()
+
+type NameF :: ConfigPhase -> Type -> Type
+type family NameF p a where
+  NameF ConfigPhaseArgs a = Maybe (WithDisabled a)
+  NameF ConfigPhaseToml a = a
+  NameF ConfigPhaseMerged a = Maybe a
+  NameF ConfigPhaseEnv _ = ()
+
+type ProtocolF :: ConfigPhase -> Type
+type family ProtocolF p where
+  ProtocolF ConfigPhaseArgs = Maybe (WithDisabled Protocol)
+  ProtocolF ConfigPhaseToml = Maybe Protocol
+  ProtocolF ConfigPhaseMerged = Protocol
+  ProtocolF ConfigPhaseEnv = ()
+
+type PathF :: ConfigPhase -> Type
+type family PathF p where
+  PathF ConfigPhaseArgs = Maybe (WithDisabled OsPath)
+  PathF ConfigPhaseToml = Maybe OsPath
+  PathF ConfigPhaseMerged = Maybe OsPath
+  PathF ConfigPhaseEnv = ()
+
+-- | Config related to a single repository.
 type RepoConfig :: ConfigPhase -> Type
 data RepoConfig p = MkRepoConfig
   { -- | Branch filters.
     branches :: BranchesF p,
     -- | Domain e.g. github.com
-    domain :: ConfigWdF p OsString,
+    domain :: DomainF p,
     -- | Repo name e.g. org/repo
-    name :: NameF p,
+    name :: NameF p RepoName,
+    -- | Optional path to repo on the file-system, overrides default cache.
+    -- This is OsPath and not RepoPath as we perform the normalization at the
+    -- Merged -> Env stage.
+    path :: PathF p,
     -- | Protocol e.g. https
-    protocol :: ConfigWdF p Protocol
+    protocol :: ProtocolF p,
+    -- | Remote name e.g. 'origin'.
+    remoteName :: ConfigWdMaybeF p RepoRemoteName
   }
+
+instance DecodeTOML (RepoConfig ConfigPhaseToml) where
+  tomlDecoder = do
+    branches <- branchesDecoder
+    domain <- domainDecoder
+    name <- nameDecoder
+    path <- pathDecoder
+    protocol <- protocolDecoder
+    remoteName <- remoteNameDecoder
+
+    pure
+      $ MkRepoConfig
+        { branches,
+          domain,
+          name,
+          path,
+          protocol,
+          remoteName
+        }
+    where
+      branchesDecoder = do
+        mBranches <- getFieldOptWith tomlDecoder "branches"
+        case mBranches of
+          Nothing -> pure []
+          Just bs -> traverse encodeFail bs
+
+      domainDecoder = getFieldOptWith tomlDecoder "domain"
+
+      nameDecoder = getFieldWith tomlDecoder "name"
+
+      pathDecoder = getFieldOptWith Toml.Utils.osStringDecoder "path"
+
+      protocolDecoder = getFieldOptWith tomlDecoder "protocol"
+
+      remoteNameDecoder = getFieldOptWith tomlDecoder "remote"
 
 -- | Determines what kind of delete we perform.
 data DeleteCacheType
@@ -76,46 +156,12 @@ data Command p
   | -- | Searches for the pull request.
     SearchPullRequest (SearchPullRequestF p)
 
-data RepoMapVal = MkRepoMapVal
-  { branches :: [OsString],
-    domain :: Maybe OsString,
-    protocol :: Maybe Protocol
-  }
-
-instance DecodeTOML RepoMapVal where
-  tomlDecoder = do
-    branches <- branchesDecoder
-    domain <- domainDecoder
-    protocol <- protocolDecoder
-
-    pure
-      $ MkRepoMapVal
-        { branches,
-          domain,
-          protocol
-        }
-    where
-      branchesDecoder = do
-        mBranches <- getFieldOptWith tomlDecoder "branches"
-        case mBranches of
-          Nothing -> pure []
-          Just bs -> traverse encodeFail bs
-      domainDecoder = getFieldOptWith (tomlDecoder >>= encodeFail) "domain"
-      protocolDecoder = getFieldOptWith tomlDecoder "protocol"
-
 type RepoF :: ConfigPhase -> Type
 type family RepoF p where
   RepoF ConfigPhaseArgs = RepoConfig ConfigPhaseArgs
-  RepoF ConfigPhaseToml = Map RepoName RepoMapVal
+  RepoF ConfigPhaseToml = Map RepoName (RepoConfig ConfigPhaseToml)
   RepoF ConfigPhaseMerged = RepoConfig ConfigPhaseMerged
-  RepoF ConfigPhaseEnv = ()
-
-type BranchesF :: ConfigPhase -> Type
-type family BranchesF p where
-  BranchesF ConfigPhaseArgs = Maybe (WithDisabled [OsString])
-  BranchesF ConfigPhaseToml = Maybe (Map OsString [OsString])
-  BranchesF ConfigPhaseMerged = [OsString]
-  BranchesF ConfigPhaseEnv = [OsString]
+  RepoF ConfigPhaseEnv = RepoConfig ConfigPhaseEnv
 
 type Config :: ConfigPhase -> Type
 data Config p = MkConfig

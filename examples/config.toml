@@ -1,4 +1,5 @@
-# All keys are overridden by CLI args.
+# All keys are overridden by CLI args and optional, unless otherwise
+# stated.
 
 # Repo map is a map from a repo name to various args. If the given --name
 # matches an entry here, its values will be used, unless overridden by

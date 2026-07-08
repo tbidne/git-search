@@ -20,17 +20,17 @@ import Effectful.FileSystem.PathReader.Static qualified as PR
 import Effectful.FileSystem.PathWriter.Static qualified as PW
 import Effectful.Process qualified as P
 import Effectful.Time.Static qualified as Time
-import Git.Search.Config
-  ( Env (branches, coreConfig),
-  )
+import Git.Search.Config (Env (coreConfig))
 import Git.Search.Config.Data
-  ( Config (clean),
+  ( Config (clean, repo),
     DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
+    RepoConfig (branches, remoteName),
   )
 import Git.Search.Data
   ( Commit (MkCommit, unCommit),
     RepoName (unRepoName),
     RepoPath (unRepoPath),
+    RepoRemoteName (unRepoRemoteName),
     RepoRemoteUri (unRepoRemoteUri),
   )
 import Git.Search.Logging qualified as Logging
@@ -66,7 +66,7 @@ deleteCache cacheType = do
 
       exists <- PR.doesDirectoryExist repoDir
       if exists
-        then PW.removeDirectory repoDir
+        then PW.removePathForcibly repoDir
         else throwString $ "Cached repository does not exist: " <> repoDirStr
 
 -- | Returns a list of branches matching the search criteria.
@@ -198,9 +198,11 @@ cloneRepo repoPath repoSrc = do
       Logging.logInfo $ "Clone finished: " ++ timeStr
 
     runFetch = do
+      env <- ask @Env
       Logging.logInfo $ "Fetching " ++ repoSrcStr ++ "..."
+
       timeStr <- PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
-        withTiming_ $ runGit_ fetchArgs
+        withTiming_ $ runGit_ (fetchArgs env.coreConfig.repo.remoteName)
       Logging.logInfo $ "Fetch finished: " ++ timeStr
 
     -- Our args will make a bare repo with no files e.g. git clone org/some-repo
@@ -219,8 +221,13 @@ cloneRepo repoPath repoSrc = do
         repoPathOsP
       ]
 
-    fetchArgs =
+    fetchArgs Nothing =
       [ [osstr|fetch|],
+        [osstr|--prune|]
+      ]
+    fetchArgs (Just remoteName) =
+      [ [osstr|fetch|],
+        remoteName.unRepoRemoteName,
         [osstr|--prune|]
       ]
 
@@ -256,7 +263,7 @@ findBranches commit repoPath = do
       pure []
     else do
       PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
-        (timeStr, out) <- withTiming $ runGitOut (gitArgs env.branches)
+        (timeStr, out) <- withTiming $ runGitOut (gitArgs env.coreConfig.repo.branches)
         Logging.logInfo
           $ "Search finished: "
           ++ timeStr

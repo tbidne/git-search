@@ -6,10 +6,10 @@ where
 import Data.Map.Strict qualified as Map
 import Git.Search.Config.Data
   ( Config (MkConfig, clean, logColor, logLevel, repo),
-    RepoMapVal,
+    RepoConfig (name),
   )
 import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseToml))
-import Git.Search.Data (RepoName (MkRepoName))
+import Git.Search.Data (RepoName)
 import Git.Search.Prelude
 import TOML (Decoder)
 
@@ -45,23 +45,15 @@ instance DecodeTOML Toml where
           Nothing -> Map.empty
           Just mp -> mp
 
-      decodeMap :: Decoder (Map RepoName RepoMapVal)
+      decodeMap :: Decoder (Map RepoName (RepoConfig ConfigPhaseToml))
       decodeMap = do
-        assocVals <- fmap (.unRepoMapItem) <$> tomlDecoder @[RepoMapItem]
+        assocVals <- fmap (\r -> (r.name, r)) <$> tomlDecoder
         pure $ Map.fromList assocVals
 
       decodeMisc =
         fmap (fromMaybe Nothing)
           $ flip getFieldOptWith "miscellaneous"
           $ getFieldOptWith decodeSwitch "clean"
-
-newtype RepoMapItem = MkRepoMapItem {unRepoMapItem :: (RepoName, RepoMapVal)}
-
-instance DecodeTOML RepoMapItem where
-  tomlDecoder = do
-    name <- encodeFail =<< getFieldWith tomlDecoder "name"
-    rmv <- tomlDecoder
-    pure $ MkRepoMapItem (MkRepoName name, rmv)
 
 decodeSwitch :: Decoder Bool
 decodeSwitch =

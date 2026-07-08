@@ -10,15 +10,15 @@ import Data.Map.Strict qualified as Map
 import Git.Search.Config.Args (Args (coreConfig))
 import Git.Search.Config.Data
   ( Config (MkConfig, clean, logColor, logLevel, repo),
-    RepoConfig (MkRepoConfig, branches, domain, name, protocol),
-    RepoMapVal (branches, domain, protocol),
+    RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
   )
-import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseMerged))
+import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseMerged, ConfigPhaseToml))
 import Git.Search.Config.Toml (Toml (coreConfig))
 import Git.Search.Config.WithDisabled (WithDisabled (Disabled, With))
 import Git.Search.Config.WithDisabled qualified as WD
 import Git.Search.Data
-  ( Protocol (ProtocolHttps),
+  ( Domain (MkDomain),
+    Protocol (ProtocolHttps),
     RepoName,
   )
 import Git.Search.Prelude
@@ -53,11 +53,23 @@ mergeConfig args Nothing =
                           Map.empty
                           name,
                       name,
+                      path =
+                        mergeWDMaybe
+                          (.path)
+                          args.coreConfig.repo.path
+                          Map.empty
+                          name,
                       protocol =
                         mergeWD
                           defProtocol
                           (.protocol)
                           args.coreConfig.repo.protocol
+                          Map.empty
+                          name,
+                      remoteName =
+                        mergeWDMaybe
+                          (.remoteName)
+                          args.coreConfig.repo.remoteName
                           Map.empty
                           name
                     }
@@ -95,11 +107,23 @@ mergeConfig args (Just toml) =
                           toml.coreConfig.repo
                           name,
                       name,
+                      path =
+                        mergeWDMaybe
+                          (.path)
+                          args.coreConfig.repo.path
+                          toml.coreConfig.repo
+                          name,
                       protocol =
                         mergeWD
                           defProtocol
                           (.protocol)
                           args.coreConfig.repo.protocol
+                          toml.coreConfig.repo
+                          name,
+                      remoteName =
+                        mergeWDMaybe
+                          (.remoteName)
+                          args.coreConfig.repo.remoteName
                           toml.coreConfig.repo
                           name
                     }
@@ -122,7 +146,7 @@ mergeMaybe a b = WD.toMaybe a <|> b
 
 mergeBranches ::
   Maybe (WithDisabled [OsString]) ->
-  Map RepoName RepoMapVal ->
+  Map RepoName (RepoConfig ConfigPhaseToml) ->
   Maybe RepoName ->
   [OsString]
 mergeBranches (Just Disabled) _ _ = []
@@ -131,11 +155,23 @@ mergeBranches _ _ Nothing = []
 mergeBranches Nothing repoMap (Just repoName) =
   maybe [] (.branches) $ Map.lookup repoName repoMap
 
+mergeWDMaybe ::
+  (RepoConfig ConfigPhaseToml -> Maybe a) ->
+  Maybe (WithDisabled a) ->
+  Map RepoName (RepoConfig ConfigPhaseToml) ->
+  Maybe RepoName ->
+  Maybe a
+mergeWDMaybe _ (Just Disabled) _ _ = Nothing
+mergeWDMaybe _ (Just (With x)) _ _ = Just x
+mergeWDMaybe _ Nothing _ Nothing = Nothing
+mergeWDMaybe toA Nothing repoMap (Just repoName) =
+  toA =<< Map.lookup repoName repoMap
+
 mergeWD ::
   a ->
-  (RepoMapVal -> Maybe a) ->
+  (RepoConfig ConfigPhaseToml -> Maybe a) ->
   Maybe (WithDisabled a) ->
-  Map RepoName RepoMapVal ->
+  Map RepoName (RepoConfig ConfigPhaseToml) ->
   Maybe RepoName ->
   a
 mergeWD defA _ (Just Disabled) _ _ = defA
@@ -146,8 +182,8 @@ mergeWD defA toA Nothing repoMap (Just repoName) =
     Nothing -> defA
     Just rmv -> fromMaybe defA (toA rmv)
 
-defDomain :: OsString
-defDomain = [osstr|github.com|]
+defDomain :: Domain
+defDomain = MkDomain [osstr|github.com|]
 
 defProtocol :: Protocol
 defProtocol = ProtocolHttps

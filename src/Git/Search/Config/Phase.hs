@@ -4,8 +4,6 @@ module Git.Search.Config.Phase
 
     -- * Type families
     ConfigF,
-    ConfigWdF,
-    ConfigMaybeF,
     ConfigWdMaybeF,
   )
 where
@@ -25,20 +23,6 @@ type family ConfigF p a where
   ConfigF ConfigPhaseToml a = Maybe a
   ConfigF ConfigPhaseMerged a = a
   ConfigF ConfigPhaseEnv a = a
-
-type ConfigWdF :: ConfigPhase -> Type -> Type
-type family ConfigWdF p a where
-  ConfigWdF ConfigPhaseArgs a = Maybe (WithDisabled a)
-  ConfigWdF ConfigPhaseToml a = Maybe a
-  ConfigWdF ConfigPhaseMerged a = a
-  ConfigWdF ConfigPhaseEnv a = a
-
-type ConfigMaybeF :: ConfigPhase -> Type -> Type
-type family ConfigMaybeF p a where
-  ConfigMaybeF ConfigPhaseArgs a = Maybe a
-  ConfigMaybeF ConfigPhaseToml a = Maybe a
-  ConfigMaybeF ConfigPhaseMerged a = Maybe a
-  ConfigMaybeF ConfigPhaseEnv a = Maybe a
 
 type ConfigWdMaybeF :: ConfigPhase -> Type -> Type
 type family ConfigWdMaybeF p a where
