@@ -1,24 +1,22 @@
 # All keys are overridden by CLI args.
 
-# Repository configuration.
-[repository]
+# Repo map is a map from a repo name to various args. If the given --name
+# matches an entry here, its values will be used, unless overridden by
+# the CLI.
+[[repo-map]]
+# Mandatory repo name.
+name = 'nixos/nixpkgs'
+
+# Map of names to branch filters.
+branches = [ '*master', '*unstable*' ]
 
 # Domain to use.
 domain = 'github.com'
 
-# Repo name.
-name = 'nixos/nixpkgs'
-
 # https or ssh.
 protocol = 'https'
 
-# Map of names to branch filters. If the given name (either toml or CLI args)
-# matches an entry in the map, then we filter with its branches.
-[[repository.branchMap]]
-name = 'nixos/nixpkgs'
-branches = [ '*master', '*unstable*' ]
-
-[[repository.branchMap]]
+[[repo-map]]
 name = 'org/repo'
 branches = [
   'origin/master',
@@ -26,11 +24,17 @@ branches = [
 ]
 
 # Miscellaneous options.
+[logging]
+
+# Enables logging colors. Can be 'on' or 'off', defaults to 'on'.
+log-color = 'on'
+
+# Enables logging. Can be 'debug' or 'info'.
+log-level = 'debug'
+
+# Miscellaneous options.
 [miscellaneous]
 
 # Always performs a clean clone. Not recommended for performance. Can be
 # 'on' or 'off'.
 clean = 'off'
-
-# Turns on debug logs. Can be 'on' or 'off'.
-debug = 'on'

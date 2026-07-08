@@ -21,10 +21,10 @@ import Effectful.FileSystem.PathWriter.Static qualified as PW
 import Effectful.Process qualified as P
 import Effectful.Time.Static qualified as Time
 import Git.Search.Config
-  ( Env (coreConfig),
+  ( Env (branches, coreConfig),
   )
 import Git.Search.Config.Data
-  ( Config (branches, clean),
+  ( Config (clean),
     DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
   )
 import Git.Search.Data
@@ -256,7 +256,7 @@ findBranches commit repoPath = do
       pure []
     else do
       PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
-        (timeStr, out) <- withTiming $ runGitOut (gitArgs env.coreConfig.branches)
+        (timeStr, out) <- withTiming $ runGitOut (gitArgs env.branches)
         Logging.logInfo
           $ "Search finished: "
           ++ timeStr

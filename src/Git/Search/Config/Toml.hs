@@ -5,36 +5,30 @@ where
 
 import Data.Map.Strict qualified as Map
 import Git.Search.Config.Data
-  ( Config (MkConfig, branches, clean, logColor, logLevel, repo),
-    RepoConfig (MkRepoConfig, domain, name, protocol),
+  ( Config (MkConfig, clean, logColor, logLevel, repo),
+    RepoMapVal,
   )
 import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseToml))
 import Git.Search.Data (RepoName (MkRepoName))
 import Git.Search.Prelude
-import TOML (Decoder, getFieldOptWith, getFieldWith)
+import TOML (Decoder)
 
 newtype Toml = MkToml {coreConfig :: Config ConfigPhaseToml}
 
 instance DecodeTOML Toml where
   tomlDecoder = do
     (logColor, logLevel) <- decodeLogging
-    (domain, name, protocol, branches) <- decodeRepo
+    repo <- decodeRepoMap
     clean <- decodeMisc
 
     pure
       MkToml
         { coreConfig =
             MkConfig
-              { branches,
-                clean,
+              { clean,
                 logColor,
                 logLevel,
-                repo =
-                  MkRepoConfig
-                    { domain,
-                      name,
-                      protocol
-                    }
+                repo
               }
         }
     where
@@ -46,40 +40,28 @@ instance DecodeTOML Toml where
               <$> getFieldOptWith decodeSwitch "log-color"
               <*> getFieldOptWith tomlDecoder "log-level"
 
-      decodeRepo =
-        fmap (fromMaybe (Nothing, Nothing, Nothing, Nothing))
-          $ flip getFieldOptWith "repository"
-          $ do
-            (,,,)
-              <$> getFieldOptWith decodeOsString "domain"
-              <*> getFieldOptWith (MkRepoName <$> decodeOsString) "name"
-              <*> getFieldOptWith tomlDecoder "protocol"
-              <*> getFieldOptWith decodeOsStrMap "branchMap"
+      decodeRepoMap = do
+        getFieldOptWith decodeMap "repo-map" <&> \case
+          Nothing -> Map.empty
+          Just mp -> mp
+
+      decodeMap :: Decoder (Map RepoName RepoMapVal)
+      decodeMap = do
+        assocVals <- fmap (.unRepoMapItem) <$> tomlDecoder @[RepoMapItem]
+        pure $ Map.fromList assocVals
 
       decodeMisc =
         fmap (fromMaybe Nothing)
           $ flip getFieldOptWith "miscellaneous"
           $ getFieldOptWith decodeSwitch "clean"
 
-decodeOsStrMap :: Decoder (Map OsString [OsString])
-decodeOsStrMap = do
-  assocStrs <- tomlDecoder
-  assocOsStrs <- for assocStrs $ \(MkBranchItem (k, vs)) -> do
-    kOsStr <- encodeFail k
-    vsOsStr <- traverse encodeFail vs
-    pure (kOsStr, vsOsStr)
-  pure $ Map.fromList assocOsStrs
+newtype RepoMapItem = MkRepoMapItem {unRepoMapItem :: (RepoName, RepoMapVal)}
 
-newtype BranchItem = MkBranchItem (String, [String])
-
-instance DecodeTOML BranchItem where
+instance DecodeTOML RepoMapItem where
   tomlDecoder = do
-    name <- getFieldWith tomlDecoder "name"
-    branches <- getFieldWith tomlDecoder "branches"
-    pure $ MkBranchItem (name, branches)
-
-decodeOsString :: Decoder OsString
-decodeOsString = tomlDecoder >>= encodeFail
+    name <- encodeFail =<< getFieldWith tomlDecoder "name"
+    rmv <- tomlDecoder
+    pure $ MkRepoMapItem (MkRepoName name, rmv)
 
 decodeSwitch :: Decoder Bool
 decodeSwitch =

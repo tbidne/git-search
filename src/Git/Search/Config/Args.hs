@@ -14,8 +14,8 @@ import Effectful.Optparse.Static qualified as EOA
 import Git.Search.Config.Args.TH qualified as TH
 import Git.Search.Config.Data
   ( Command (DeleteCache, SearchCommit, SearchPullRequest),
-    Config (MkConfig, branches, clean, logColor, logLevel, repo),
-    RepoConfig (MkRepoConfig, domain, name, protocol),
+    Config (MkConfig, clean, logColor, logLevel, repo),
+    RepoConfig (MkRepoConfig, branches, domain, name, protocol),
   )
 import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseArgs))
 import Git.Search.Config.WithDisabled (WithDisabled)
@@ -138,13 +138,13 @@ argsParser = do
             config,
             coreConfig =
               MkConfig
-                { branches,
-                  clean,
+                { clean,
                   logColor,
                   logLevel,
                   repo =
                     MkRepoConfig
-                      { domain,
+                      { branches,
+                        domain,
                         name,
                         protocol
                       }

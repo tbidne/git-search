@@ -113,7 +113,7 @@ import GHC.Show as X (Show (show))
 import GHC.Stack.Types as X (HasCallStack)
 import System.Exit as X (ExitCode (ExitFailure, ExitSuccess))
 import System.IO as X (IO)
-import TOML as X (DecodeTOML (tomlDecoder))
+import TOML as X (DecodeTOML (tomlDecoder), getFieldOptWith, getFieldWith)
 
 mapThrowLeft :: (Exception e2, MonadThrow m) => (e1 -> e2) -> Either e1 a -> m a
 mapThrowLeft f = throwLeft . first f

@@ -13,9 +13,9 @@ import FileSystem.Path qualified as FS.Path
 import Git.Search.Config.Args (Args (command))
 import Git.Search.Config.Data
   ( Command (DeleteCache, SearchCommit, SearchPullRequest),
-    Config (MkConfig, branches, clean, logColor, logLevel, repo),
+    Config (MkConfig, clean, logColor, logLevel, repo),
     DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
-    RepoConfig (domain, name, protocol),
+    RepoConfig (branches, domain, name, protocol),
   )
 import Git.Search.Config.Merged (MergedConfig (coreConfig), mergeConfig)
 import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseEnv))
@@ -28,7 +28,10 @@ import Git.Search.Data
   )
 import Git.Search.Prelude
 
-newtype Env = MkEnv {coreConfig :: Config ConfigPhaseEnv}
+data Env = MkEnv
+  { branches :: [OsString],
+    coreConfig :: Config ConfigPhaseEnv
+  }
 
 -- | Evolves the CLI Args to runtime Env.
 toEnv ::
@@ -129,10 +132,10 @@ toEnv args mToml = do
 
   pure
     ( MkEnv
-        { coreConfig =
+        { branches = merged.coreConfig.repo.branches,
+          coreConfig =
             MkConfig
-              { branches = merged.coreConfig.branches,
-                clean = merged.coreConfig.clean,
+              { clean = merged.coreConfig.clean,
                 logColor = merged.coreConfig.logColor,
                 logLevel = merged.coreConfig.logLevel,
                 repo = ()

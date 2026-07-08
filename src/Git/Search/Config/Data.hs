@@ -6,6 +6,9 @@ module Git.Search.Config.Data
     -- * Command
     Command (..),
 
+    -- ** Toml
+    RepoMapVal (..),
+
     -- ** Env
     DeleteCacheType (..),
   )
@@ -26,12 +29,14 @@ import Git.Search.Prelude
 type NameF :: ConfigPhase -> Type
 type family NameF p where
   NameF ConfigPhaseArgs = Maybe (WithDisabled RepoName)
-  NameF ConfigPhaseToml = Maybe RepoName
+  NameF ConfigPhaseToml = ()
   NameF ConfigPhaseMerged = Maybe RepoName
 
 type RepoConfig :: ConfigPhase -> Type
 data RepoConfig p = MkRepoConfig
-  { -- | Domain e.g. github.com
+  { -- | Branch filters.
+    branches :: BranchesF p,
+    -- | Domain e.g. github.com
     domain :: ConfigWdF p OsString,
     -- | Repo name e.g. org/repo
     name :: NameF p,
@@ -71,10 +76,37 @@ data Command p
   | -- | Searches for the pull request.
     SearchPullRequest (SearchPullRequestF p)
 
+data RepoMapVal = MkRepoMapVal
+  { branches :: [OsString],
+    domain :: Maybe OsString,
+    protocol :: Maybe Protocol
+  }
+
+instance DecodeTOML RepoMapVal where
+  tomlDecoder = do
+    branches <- branchesDecoder
+    domain <- domainDecoder
+    protocol <- protocolDecoder
+
+    pure
+      $ MkRepoMapVal
+        { branches,
+          domain,
+          protocol
+        }
+    where
+      branchesDecoder = do
+        mBranches <- getFieldOptWith tomlDecoder "branches"
+        case mBranches of
+          Nothing -> pure []
+          Just bs -> traverse encodeFail bs
+      domainDecoder = getFieldOptWith (tomlDecoder >>= encodeFail) "domain"
+      protocolDecoder = getFieldOptWith tomlDecoder "protocol"
+
 type RepoF :: ConfigPhase -> Type
 type family RepoF p where
   RepoF ConfigPhaseArgs = RepoConfig ConfigPhaseArgs
-  RepoF ConfigPhaseToml = RepoConfig ConfigPhaseToml
+  RepoF ConfigPhaseToml = Map RepoName RepoMapVal
   RepoF ConfigPhaseMerged = RepoConfig ConfigPhaseMerged
   RepoF ConfigPhaseEnv = ()
 
@@ -87,9 +119,7 @@ type family BranchesF p where
 
 type Config :: ConfigPhase -> Type
 data Config p = MkConfig
-  { -- | Branch filters.
-    branches :: BranchesF p,
-    -- | Performs a clean clone of the repo. Otherwise runs 'fetch' if the
+  { -- | Performs a clean clone of the repo. Otherwise runs 'fetch' if the
     -- repo exists.
     clean :: ConfigF p Bool,
     -- | Log colors.
