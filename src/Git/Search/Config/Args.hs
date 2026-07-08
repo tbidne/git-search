@@ -14,15 +14,17 @@ import Effectful.Optparse.Static qualified as EOA
 import Git.Search.Config.Args.TH qualified as TH
 import Git.Search.Config.Data
   ( Command (DeleteCache, SearchCommit, SearchPullRequest),
-    Commit (MkCommit),
     Config (MkConfig, branches, clean, logColor, logLevel, repo),
-    ConfigPhase (ConfigPhaseArgs),
-    Protocol (ProtocolHttps, ProtocolSsh),
     RepoConfig (MkRepoConfig, domain, name, protocol),
-    RepoName (MkRepoName),
   )
+import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseArgs))
 import Git.Search.Config.WithDisabled (WithDisabled)
 import Git.Search.Config.WithDisabled qualified as WD
+import Git.Search.Data
+  ( Commit (MkCommit),
+    Protocol (ProtocolHttps, ProtocolSsh),
+    RepoName (MkRepoName),
+  )
 import Git.Search.Logging.Data (LogLevel (LogLevelDebug, LogLevelInfo))
 import Git.Search.Prelude
 import Options.Applicative

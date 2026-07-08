@@ -6,10 +6,10 @@ where
 import Data.Map.Strict qualified as Map
 import Git.Search.Config.Data
   ( Config (MkConfig, branches, clean, logColor, logLevel, repo),
-    ConfigPhase (ConfigPhaseToml),
     RepoConfig (MkRepoConfig, domain, name, protocol),
-    RepoName (MkRepoName),
   )
+import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseToml))
+import Git.Search.Data (RepoName (MkRepoName))
 import Git.Search.Prelude
 import TOML (Decoder, getFieldOptWith, getFieldWith)
 

@@ -14,16 +14,18 @@ import Git.Search.Config.Args (Args (command))
 import Git.Search.Config.Data
   ( Command (DeleteCache, SearchCommit, SearchPullRequest),
     Config (MkConfig, branches, clean, logColor, logLevel, repo),
-    ConfigPhase (ConfigPhaseEnv),
     DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
-    Protocol (ProtocolHttps, ProtocolSsh),
     RepoConfig (domain, name, protocol),
-    RepoName (MkRepoName),
-    RepoPath (MkRepoPath),
-    RepoSrc (MkRepoSrc),
   )
 import Git.Search.Config.Merged (MergedConfig (coreConfig), mergeConfig)
+import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseEnv))
 import Git.Search.Config.Toml (Toml)
+import Git.Search.Data
+  ( Protocol (ProtocolHttps, ProtocolSsh),
+    RepoName (MkRepoName),
+    RepoPath (MkRepoPath),
+    RepoRemoteUri (MkRepoRemoteUri),
+  )
 import Git.Search.Prelude
 
 newtype Env = MkEnv {coreConfig :: Config ConfigPhaseEnv}
@@ -85,7 +87,7 @@ toEnv args mToml = do
       pathRel <- FS.Path.parseRelDir name
       let path = root <</>> pathRel
           repoPath = MkRepoPath path
-          repoSrc = MkRepoSrc src
+          repoSrc = MkRepoRemoteUri src
 
       pure $ SearchCommit (commit, repoPath, repoSrc)
     SearchPullRequest prNum -> do
@@ -121,7 +123,7 @@ toEnv args mToml = do
       pathRel <- FS.Path.parseRelDir name
       let path = root <</>> pathRel
           repoPath = MkRepoPath path
-          repoSrc = MkRepoSrc src
+          repoSrc = MkRepoRemoteUri src
 
       pure $ SearchPullRequest (prNum, repoPath, repoSrc, repoName)
 

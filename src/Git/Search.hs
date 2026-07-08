@@ -24,12 +24,14 @@ import Git.Search.Config
   ( Env (coreConfig),
   )
 import Git.Search.Config.Data
-  ( Commit (MkCommit, unCommit),
-    Config (branches, clean),
+  ( Config (branches, clean),
     DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
+  )
+import Git.Search.Data
+  ( Commit (MkCommit, unCommit),
     RepoName (unRepoName),
     RepoPath (unRepoPath),
-    RepoSrc (unRepoSrc),
+    RepoRemoteUri (unRepoRemoteUri),
   )
 import Git.Search.Logging qualified as Logging
 import Git.Search.Network (Network)
@@ -77,7 +79,7 @@ searchCommit ::
     Terminal :> es,
     Time :> es
   ) =>
-  (Commit, RepoPath, RepoSrc) ->
+  (Commit, RepoPath, RepoRemoteUri) ->
   Eff es [Text]
 searchCommit (commit, repoPath, repoSrc) = do
   cloneRepo repoPath repoSrc
@@ -93,7 +95,7 @@ searchPullRequest ::
     Terminal :> es,
     Time :> es
   ) =>
-  (Word32, RepoPath, RepoSrc, RepoName) ->
+  (Word32, RepoPath, RepoRemoteUri, RepoName) ->
   Eff es [Text]
 searchPullRequest (prNum, repoPath, repoSrc, repoName) = do
   commit <- prToCommit prNum repoName
@@ -167,7 +169,7 @@ cloneRepo ::
     Time :> es
   ) =>
   RepoPath ->
-  RepoSrc ->
+  RepoRemoteUri ->
   Eff es ()
 cloneRepo repoPath repoSrc = do
   env <- ask @Env
@@ -213,7 +215,7 @@ cloneRepo repoPath repoSrc = do
         [osstr|--no-checkout|],
         [osstr|--filter=blob:none|],
         [osstr|--|],
-        repoSrc.unRepoSrc,
+        repoSrc.unRepoRemoteUri,
         repoPathOsP
       ]
 
@@ -224,7 +226,7 @@ cloneRepo repoPath repoSrc = do
 
     repoPathOsP = toOsPath repoPath.unRepoPath
     repoPathStr = decodeLenient repoPathOsP
-    repoSrcStr = decodeLenient repoSrc.unRepoSrc
+    repoSrcStr = decodeLenient repoSrc.unRepoRemoteUri
 
 findBranches ::
   ( HasCallStack,

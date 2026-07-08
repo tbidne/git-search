@@ -10,14 +10,16 @@ import Data.Map.Strict qualified as Map
 import Git.Search.Config.Args (Args (coreConfig))
 import Git.Search.Config.Data
   ( Config (MkConfig, branches, clean, logColor, logLevel, repo),
-    ConfigPhase (ConfigPhaseMerged),
-    Protocol (ProtocolHttps),
     RepoConfig (MkRepoConfig, domain, name, protocol),
-    RepoName (unRepoName),
   )
+import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseMerged))
 import Git.Search.Config.Toml (Toml (coreConfig))
 import Git.Search.Config.WithDisabled (WithDisabled (Disabled, With))
 import Git.Search.Config.WithDisabled qualified as WD
+import Git.Search.Data
+  ( Protocol (ProtocolHttps),
+    RepoName (unRepoName),
+  )
 import Git.Search.Prelude
 
 newtype MergedConfig = MkMergedConfig {coreConfig :: Config ConfigPhaseMerged}
