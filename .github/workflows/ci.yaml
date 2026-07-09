@@ -38,6 +38,9 @@ jobs:
       - name: Compile
         run: cabal build
 
-      - name: Test
+      - name: Integration tests
+        run: cabal test integration
+
+      - name: Functional tests
         shell: bash
         run: TEST_FUNCTIONAL=clone cabal test functional
