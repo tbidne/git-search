@@ -10,6 +10,7 @@ where
 import Data.List qualified as L
 import Data.Text qualified as T
 import Data.Version (showVersion)
+import Effectful.Optparse.Completer qualified as EOC
 import Effectful.Optparse.Static qualified as EOA
 import Git.Search.Config.Args.TH qualified as TH
 import Git.Search.Config.Data
@@ -185,6 +186,7 @@ branchesParser =
     $ mconcat
       [ OA.long "branches",
         OA.metavar "(STR | off)",
+        OA.completeWith ["off"],
         mkHelp
           $ mconcat
             [ "Filters the search via space-separated branches e.g. ",
@@ -247,6 +249,7 @@ configParser =
     $ mconcat
       [ OA.long "config",
         OA.metavar "(PATH | off)",
+        OA.completeWith ["off"],
         mkHelpNoLine
           $ mconcat
             [ "Path to TOML config. We also look in XDG config e.g. ",
@@ -266,6 +269,7 @@ domainParser =
     $ mconcat
       [ OA.long "domain",
         OA.metavar "(STR | off)",
+        OA.completeWith ["off"],
         mkHelp "Repository domain. Defaults to github.com."
       ]
   where
@@ -289,6 +293,7 @@ logLevelParser =
     $ mconcat
       [ OA.long "log-level",
         OA.metavar "(debug | info | off)",
+        OA.completeWith ["debug", "info", "off"],
         mkHelpNoLine "Enables logging."
       ]
   where
@@ -325,6 +330,7 @@ pathParser =
     $ mconcat
       [ OA.long "path",
         OA.metavar "(PATH | off)",
+        OA.completer EOC.compgenCwdDirsCompleter,
         mkHelp
           $ mconcat
             [ "Overrides the default cache location for the repository clone. ",
@@ -345,6 +351,7 @@ nameParser =
     $ mconcat
       [ OA.long "name",
         OA.metavar "(STR | off)",
+        OA.completeWith ["off"],
         mkHelp
           $ mconcat
             [ "Repository name. This should be the organization and repo ",
@@ -365,6 +372,7 @@ protocolParser =
     $ mconcat
       [ OA.long "protocol",
         OA.metavar "(https | ssh | off)",
+        OA.completeWith ["https", "ssh", "off"],
         mkHelpNoLine "Protocol to use. Defaults to https."
       ]
   where
@@ -383,6 +391,7 @@ remoteNameParser =
     $ mconcat
       [ OA.long "remote-name",
         OA.metavar "(STR | off)",
+        OA.completeWith ["off"],
         mkHelp "Remote name for fetching. Defaults to 'origin'."
       ]
   where
@@ -457,7 +466,10 @@ switchParser mods =
         "on" -> pure True
         other -> fail $ "Unrecognized: " ++ other
 
-    mods' = mods <> OA.metavar "(on | off)"
+    mods' =
+      mods
+        <> OA.metavar "(on | off)"
+        <> OA.completeWith ["on", "off"]
 
 mkCommand :: String -> Parser a -> InfoMod a -> Mod CommandFields a
 mkCommand cmdTxt parser helpTxt = OA.command cmdTxt (OA.info parser helpTxt)
