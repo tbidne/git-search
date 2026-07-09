@@ -39,6 +39,9 @@ common common-lang
     StrictData
     TypeFamilies
 
+  if os(windows)
+    cpp-options: -DWINDOWS
+
   default-language:   GHC2024
 
 library
@@ -118,6 +121,7 @@ test-suite integration
     , hedgehog        >=1.0.2   && <1.8
     , tasty           >=1.1.0.3 && <1.6
     , tasty-hedgehog  >=1.2.0.0 && <1.5
+    , text
 
   hs-source-dirs: test/integration
 

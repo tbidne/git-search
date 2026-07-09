@@ -1,3 +1,5 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Integration.DeleteCache (tests) where
 
 import Git.Search.Config.Data
@@ -45,7 +47,7 @@ testDeleteGlobal = testProp1 desc "testDeleteGlobal" $ do
         }
 
     expectedCmd :: Command ConfigPhaseEnv
-    expectedCmd = DeleteCache (DeleteCacheGlobal $ unsafePathAbsDir "/.cache/git-search")
+    expectedCmd = DeleteCache $ DeleteCacheGlobal gitSearchCacheDir
 
 testDeleteLocal :: TestTree
 testDeleteLocal = testProp1 desc "testDeleteLocal" $ do
@@ -76,4 +78,10 @@ testDeleteLocal = testProp1 desc "testDeleteLocal" $ do
         }
 
     expectedCmd :: Command ConfigPhaseEnv
-    expectedCmd = DeleteCache (DeleteCacheLocal $ unsafeRepoPath "/.cache/git-search/org/repo")
+    expectedCmd =
+      DeleteCache
+        ( DeleteCacheLocal
+            $ MkRepoPath
+            $ gitSearchCacheDir
+            <</>> [reldirPathSep|org/repo|]
+        )

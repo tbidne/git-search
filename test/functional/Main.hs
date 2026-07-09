@@ -136,7 +136,7 @@ mkArgs =
 mkArgsCmd :: [String] -> OsString -> [String]
 mkArgsCmd cmdArgs cfgPath =
   [ "--config",
-    decodeLenient cfgPath,
+    unsafeDecode cfgPath,
     "--log-color",
     "off",
     "--log-level",

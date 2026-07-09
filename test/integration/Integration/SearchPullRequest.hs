@@ -1,3 +1,5 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Integration.SearchPullRequest (tests) where
 
 import Git.Search.Config.Data
@@ -55,7 +57,7 @@ testSearchPullRequestDefault = testProp1 desc "testSearchPullRequestDefault" $ d
     expectedCmd =
       SearchPullRequest
         ( 123,
-          unsafeRepoPath "/.cache/git-search/org/repo/",
+          MkRepoPath repoCacheDir,
           unsafeRemoteUri "https://github.com/org/repo",
           unsafeRepoName "org/repo"
         )
@@ -81,7 +83,7 @@ testSearchPullRequestArgs = testProp1 desc "testSearchPullRequestArgs" $ do
         "--name",
         "org/repo",
         "--path",
-        "/local/path",
+        unsafeDecode $ toOsPath $ root <</>> [reldirPathSep|local/path/|],
         "--remote-name",
         "upstream",
         "search-pr",
@@ -111,7 +113,7 @@ testSearchPullRequestArgs = testProp1 desc "testSearchPullRequestArgs" $ do
     expectedCmd =
       SearchPullRequest
         ( 123,
-          unsafeRepoPath "/local/path/",
+          MkRepoPath $ root <</>> [reldirPathSep|local/path/|],
           unsafeRemoteUri "https://github.com/org/repo",
           unsafeRepoName "org/repo"
         )
@@ -161,7 +163,7 @@ testSearchPullRequestToml = testProp1 desc "testSearchPullRequestToml" $ do
     expectedCmd =
       SearchPullRequest
         ( 123,
-          unsafeRepoPath "/home/local/path/",
+          MkRepoPath $ homeDir <</>> [reldirPathSep|local/path/|],
           unsafeRemoteUri "https://github.com/org/repo",
           unsafeRepoName "org/repo"
         )
@@ -221,7 +223,7 @@ testSearchPullRequestArgsOverridesToml = testProp1 desc "testSearchPullRequestAr
     expectedCmd =
       SearchPullRequest
         ( 123,
-          unsafeRepoPath "/.cache/git-search/org/repo/",
+          MkRepoPath repoCacheDir,
           unsafeRemoteUri "https://github.com/org/repo",
           unsafeRepoName "org/repo"
         )
@@ -231,7 +233,7 @@ testSearchPullRequestNameReq = testProp1 desc "testSearchPullRequestNameReq" $ d
   eResult <- trySync $ liftIO $ runEnvNoConfig ["search-pr", "123"]
 
   case eResult of
-    Left ex -> expected === displayException ex
+    Left ex -> assertExStr expected ex
     Right x -> do
       annotate "Expected exception, received result"
       annotateShow x
@@ -246,7 +248,7 @@ testSearchPullRequestDomainGithub = testProp1 desc "testSearchPullRequestDomainG
   eResult <- trySync $ liftIO $ runEnvNoConfig args
 
   case eResult of
-    Left ex -> expected === displayException ex
+    Left ex -> assertExStr expected ex
     Right x -> do
       annotate "Expected exception, received result"
       annotateShow x
@@ -270,7 +272,7 @@ testSearchPullRequestProtocolHttps = testProp1 desc "testSearchPullRequestProtoc
   eResult <- trySync $ liftIO $ runEnvNoConfig args
 
   case eResult of
-    Left ex -> expected === displayException ex
+    Left ex -> assertExStr expected ex
     Right x -> do
       annotate "Expected exception, received result"
       annotateShow x

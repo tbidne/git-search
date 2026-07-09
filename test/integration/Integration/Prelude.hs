@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module Integration.Prelude
@@ -11,7 +12,18 @@ module Integration.Prelude
     runEnvNoConfig,
     runEnvConfig,
 
+    -- * Assertions
+    assertExStr,
+
     -- * Misc
+
+    -- ** Directories
+    xdgCacheDir,
+    gitSearchCacheDir,
+    repoCacheDir,
+    xdgConfigDir,
+    homeDir,
+    root,
 
     -- ** Basic types
     unsafeOsStrs,
@@ -26,6 +38,7 @@ module Integration.Prelude
   )
 where
 
+import Data.Text qualified as T
 import Effectful.Dispatch.Dynamic (interpret_)
 import Effectful.FileSystem.PathReader.Dynamic qualified as PR
 import Effectful.FileSystem.PathWriter.Dynamic qualified as PW
@@ -47,6 +60,7 @@ import Hedgehog as X
     PropertyT,
     annotate,
     annotateShow,
+    assert,
     failure,
     property,
     withTests,
@@ -68,7 +82,7 @@ runEnvNoConfig = runEnv . (\as -> "--config" : "off" : as)
 runEnvConfig :: [String] -> IO (Env, Command ConfigPhaseEnv)
 runEnvConfig = runEnv . (\as -> "--config" : cfg : as)
   where
-    cfg = decodeLenient [ospPathSep|test/integration/config.toml|]
+    cfg = unsafeDecode [ospPathSep|test/integration/config.toml|]
 
 -- NOTE: withArgs is not thread-safe, hence our cabal suite cannot have:
 --
@@ -88,11 +102,26 @@ runEnv args = Env.withArgs args $ runner Runner.getEnv
 runPR :: Eff (PathReader : es) a -> Eff es a
 runPR = interpret_ $ \case
   PR.GetXdgDirectory xdg p -> case xdg of
-    PR.XdgCache -> pure $ [osp|/.cache|] </> p
-    PR.XdgConfig -> pure $ [osp|/.config|] </> p
+    PR.XdgCache -> pure $ toOsPath xdgCacheDir </> p
+    PR.XdgConfig -> pure $ toOsPath xdgConfigDir </> p
     other -> error $ "runPR.xdg.unimplemented: " ++ show other
-  PR.GetHomeDirectory -> pure [osp|/home|]
+  PR.GetHomeDirectory -> pure $ toOsPath homeDir
   other -> error $ "runPR.unimplemented: " ++ showEffectCons other
+
+xdgCacheDir :: Path Abs Dir
+xdgCacheDir = root <</>> [reldir|.cache|]
+
+gitSearchCacheDir :: Path Abs Dir
+gitSearchCacheDir = xdgCacheDir <</>> [reldir|git-search|]
+
+repoCacheDir :: Path Abs Dir
+repoCacheDir = gitSearchCacheDir <</>> [reldirPathSep|org/repo|]
+
+xdgConfigDir :: Path Abs Dir
+xdgConfigDir = root <</>> [reldir|.config|]
+
+homeDir :: Path Abs Dir
+homeDir = root <</>> [reldir|home|]
 
 runPW :: Eff (PathWriter : es) a -> Eff es a
 runPW = interpret_ $ \case
@@ -123,3 +152,22 @@ unsafeRepoName = MkRepoName . unsafeEncode
 
 unsafeRepoPath :: String -> RepoPath
 unsafeRepoPath = MkRepoPath . unsafePathAbsDir
+
+assertExStr :: (Exception e) => String -> e -> PropertyT IO ()
+assertExStr expected ex = do
+  annotate expected
+  annotate result
+
+  -- isPrefixOf for GHC 9.10 and trailing exception callstack.
+  assert (expectedTxt `T.isPrefixOf` resultTxt)
+  where
+    expectedTxt = pack expected
+    result = displayException ex
+    resultTxt = pack $ displayException ex
+
+root :: Path Abs Dir
+#if WINDOWS
+root = [absdir|C:\|]
+#else
+root = [absdir|/|]
+#endif

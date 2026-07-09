@@ -103,6 +103,7 @@ import FileSystem.OsString as X
     encodeLenient,
     encodeThrowM,
     osstr,
+    unsafeDecode,
     unsafeEncode,
   )
 #if MIN_VERSION_GLASGOW_HASKELL(9, 14, 1, 0)
@@ -111,6 +112,9 @@ import FileSystem.Path as X
     Dir,
     Path,
     absdir,
+    absdirPathSep,
+    reldir,
+    reldirPathSep,
     toOsPath,
     (<</>>),
     data MkPath
@@ -121,6 +125,9 @@ import FileSystem.Path as X
     Dir,
     Path,
     absdir,
+    absdirPathSep,
+    reldir,
+    reldirPathSep,
     toOsPath,
     (<</>>),
     pattern MkPath

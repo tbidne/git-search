@@ -1,3 +1,5 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Integration.SearchCommit (tests) where
 
 import Git.Search.Config.Data
@@ -53,7 +55,7 @@ testSearchCommitDefault = testProp1 desc "testSearchCommitDefault" $ do
     expectedCmd =
       SearchCommit
         ( unsafeCommit "abcdef0",
-          unsafeRepoPath "/.cache/git-search/org/repo/",
+          MkRepoPath repoCacheDir,
           unsafeRemoteUri "https://github.com/org/repo"
         )
 
@@ -80,7 +82,7 @@ testSearchCommitArgs = testProp1 desc "testSearchCommitArgs" $ do
         "--name",
         "org/repo",
         "--path",
-        "/local/path",
+        unsafeDecode $ toOsPath $ root <</>> [reldirPathSep|local/path/|],
         "--protocol",
         "ssh",
         "--remote-name",
@@ -112,7 +114,7 @@ testSearchCommitArgs = testProp1 desc "testSearchCommitArgs" $ do
     expectedCmd =
       SearchCommit
         ( unsafeCommit "abcdef0",
-          unsafeRepoPath "/local/path/",
+          MkRepoPath $ root <</>> [reldirPathSep|local/path|],
           unsafeRemoteUri "git@server.com:org/repo"
         )
 
@@ -155,7 +157,7 @@ testSearchCommitToml = testProp1 desc "testSearchCommitToml" $ do
     expectedCmd =
       SearchCommit
         ( unsafeCommit "abcdef0",
-          unsafeRepoPath "/home/local/path/",
+          MkRepoPath $ homeDir <</>> [reldirPathSep|local/path/|],
           unsafeRemoteUri "git@server.com:org/repo"
         )
 
@@ -214,7 +216,7 @@ testSearchCommitArgsOverridesToml = testProp1 desc "testSearchCommitArgsOverride
     expectedCmd =
       SearchCommit
         ( unsafeCommit "abcdef0",
-          unsafeRepoPath "/.cache/git-search/org/repo",
+          MkRepoPath repoCacheDir,
           unsafeRemoteUri "https://github.com/org/repo"
         )
 
@@ -223,7 +225,7 @@ testSearchCommitNameReq = testProp1 desc "testSearchCommitNameReq" $ do
   eResult <- trySync $ liftIO $ runEnvNoConfig ["search-commit", "abcdef0"]
 
   case eResult of
-    Left ex -> expected === displayException ex
+    Left ex -> assertExStr expected ex
     Right x -> do
       annotate "Expected exception, received result"
       annotateShow x
