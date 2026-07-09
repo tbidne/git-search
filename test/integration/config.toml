@@ -1,0 +1,14 @@
+[[repo-map]]
+name = 'org/repo'
+branches = [ '*master', '*unstable*' ]
+domain = 'server.com'
+path = '~/local/path'
+protocol = 'ssh'
+remote = 'upstream'
+
+[logging]
+log-color = 'off'
+log-level = 'debug'
+
+[miscellaneous]
+clean = 'on'

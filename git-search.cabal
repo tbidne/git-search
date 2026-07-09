@@ -16,6 +16,7 @@ extra-source-files:
   .gitignore
   cabal.project
   README.md
+  test/integration/config.toml
 
 extra-doc-files:    CHANGELOG.md
 
@@ -68,6 +69,7 @@ library
     , bytestring            >=0.10.12   && <0.13
     , containers            >=0.6.3.1   && <0.9
     , effectful             >=2.5.0.0   && <2.7
+    , effectful-utils       ^>=0.1
     , exception-utils       ^>=0.1
     , fs-effectful          ^>=0.1
     , fs-utils              ^>=0.1
@@ -98,6 +100,27 @@ executable git-search
   hs-source-dirs: app
   ghc-options:    -threaded -with-rtsopts=-N
 
+test-suite integration
+  import:         common-lang
+  type:           exitcode-stdio-1.0
+  main-is:        Main.hs
+  other-modules:
+    Integration.DeleteCache
+    Integration.Prelude
+    Integration.SearchCommit
+    Integration.SearchPullRequest
+
+  build-depends:
+    , base
+    , effectful
+    , fs-effectful
+    , git-search
+    , hedgehog        >=1.0.2   && <1.8
+    , tasty           >=1.1.0.3 && <1.6
+    , tasty-hedgehog  >=1.2.0.0 && <1.5
+
+  hs-source-dirs: test/integration
+
 test-suite functional
   import:         common-lang
   type:           exitcode-stdio-1.0
@@ -106,11 +129,9 @@ test-suite functional
     , base
     , containers
     , effectful
-    , effectful-utils     ^>=0.1
     , fs-effectful
     , git-search
-    , tasty               >=1.1.0.3 && <1.6
-    , tasty-hunit         >=0.9     && <0.11
+    , tasty-hunit         >=0.9 && <0.11
     , terminal-effectful
     , text
 

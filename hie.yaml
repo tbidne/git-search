@@ -6,5 +6,8 @@ cradle:
     - path: "./app/Main.hs"
       component: "git-search:exe:git-search"
 
+    - path: "./test/integration"
+      component: "git-search:test:integration"
+
     - path: "./test/functional"
       component: "git-search:test:functional"

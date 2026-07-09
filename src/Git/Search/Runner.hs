@@ -1,7 +1,11 @@
 {-# LANGUAGE QuasiQuotes #-}
 
 module Git.Search.Runner
-  ( runSearch,
+  ( -- * Main
+    runSearch,
+
+    -- * Misc
+    getEnv,
   )
 where
 
@@ -12,8 +16,9 @@ import Effectful.Exception qualified as Ex
 import Effectful.FileSystem.FileReader.Static qualified as FR
 import Effectful.FileSystem.HandleReader.Static qualified as HR
 import Effectful.FileSystem.HandleWriter.Dynamic qualified as HW
-import Effectful.FileSystem.PathReader.Static qualified as PR
+import Effectful.FileSystem.PathReader.Dynamic qualified as PR
 import Git.Search qualified
+import Git.Search.Config (Env)
 import Git.Search.Config qualified as Config
 import Git.Search.Config.Args (Args)
 import Git.Search.Config.Args qualified
@@ -24,6 +29,7 @@ import Git.Search.Config.Data
         SearchPullRequest
       ),
   )
+import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseEnv))
 import Git.Search.Config.Toml (Toml)
 import Git.Search.Config.WithDisabled (WithDisabled (Disabled, With))
 import Git.Search.Logging qualified as Logging
@@ -48,10 +54,7 @@ runSearch ::
   ) =>
   Eff es ()
 runSearch = withHiddenInput $ do
-  args <- Git.Search.Config.Args.getArgs
-  mToml <- getToml args
-
-  (env, cmd) <- Config.toEnv args mToml
+  (env, cmd) <- getEnv
 
   runReader env $ do
     let cmdAction = case cmd of
@@ -80,6 +83,20 @@ runSearch = withHiddenInput $ do
               suffix,
               unpack formatted
             ]
+
+getEnv ::
+  ( FileReader :> es,
+    HasCallStack,
+    Optparse :> es,
+    PathReader :> es,
+    PathWriter :> es
+  ) =>
+  Eff es (Env, Command ConfigPhaseEnv)
+getEnv = do
+  args <- Git.Search.Config.Args.getArgs
+  mToml <- getToml args
+
+  Config.toEnv args mToml
 
 getToml ::
   ( HasCallStack,

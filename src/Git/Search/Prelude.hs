@@ -69,11 +69,12 @@ import Data.Tuple as X (fst, snd)
 import Data.Word as X (Word32)
 import Effectful as X (Eff, IOE, runEff, type (:>))
 import Effectful.Concurrent as X (Concurrent, runConcurrent)
+import Effectful.Dynamic.Utils as X (showEffectCons)
 import Effectful.FileSystem.FileReader.Static as X (FileReader, runFileReader)
 import Effectful.FileSystem.HandleReader.Static as X (HandleReader, runHandleReader)
 import Effectful.FileSystem.HandleWriter.Dynamic as X (HandleWriter, runHandleWriter)
-import Effectful.FileSystem.PathReader.Static as X (PathReader, runPathReader)
-import Effectful.FileSystem.PathWriter.Static as X (PathWriter, runPathWriter)
+import Effectful.FileSystem.PathReader.Dynamic as X (PathReader, runPathReader)
+import Effectful.FileSystem.PathWriter.Dynamic as X (PathWriter, runPathWriter)
 import Effectful.Optparse.Static as X (Optparse, osString, runOptparse, validOsPath)
 import Effectful.Process as X (Process, runProcess)
 import Effectful.Reader.Static as X (Reader, ask, asks, runReader)
@@ -84,7 +85,14 @@ import Effectful.Terminal.Dynamic as X
     runTerminal,
   )
 import Effectful.Time.Static as X (Time, runTime)
-import FileSystem.OsPath as X (OsPath, encodeValidFail, osp, ospPathSep, (</>))
+import FileSystem.OsPath as X
+  ( OsPath,
+    encodeValidFail,
+    encodeValidThrowM,
+    osp,
+    ospPathSep,
+    (</>),
+  )
 import FileSystem.OsString as X
   ( OsString,
     decode,
@@ -95,11 +103,28 @@ import FileSystem.OsString as X
     encodeLenient,
     encodeThrowM,
     osstr,
+    unsafeEncode,
   )
 #if MIN_VERSION_GLASGOW_HASKELL(9, 14, 1, 0)
-import FileSystem.Path as X (Abs, Dir, Path, toOsPath, (<</>>), data MkPath)
+import FileSystem.Path as X
+  ( Abs,
+    Dir,
+    Path,
+    absdir,
+    toOsPath,
+    (<</>>),
+    data MkPath
+  )
 #else
-import FileSystem.Path as X (Abs, Dir, Path, toOsPath, (<</>>), pattern MkPath)
+import FileSystem.Path as X
+  ( Abs,
+    Dir,
+    Path,
+    absdir,
+    toOsPath,
+    (<</>>),
+    pattern MkPath
+  )
 #endif
 import GHC.Err as X (error)
 import GHC.Exception (errorCallWithCallStackException)

@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+
 module Git.Search.Config.Data
   ( -- * Config
     Config (..),
@@ -89,6 +91,26 @@ data RepoConfig p = MkRepoConfig
     remoteName :: ConfigWdMaybeF p RepoRemoteName
   }
 
+deriving stock instance
+  ( Eq (BranchesF p),
+    Eq (DomainF p),
+    Eq (NameF p RepoName),
+    Eq (PathF p),
+    Eq (ProtocolF p),
+    Eq (ConfigWdMaybeF p RepoRemoteName)
+  ) =>
+  Eq (RepoConfig p)
+
+deriving stock instance
+  ( Show (BranchesF p),
+    Show (DomainF p),
+    Show (NameF p RepoName),
+    Show (PathF p),
+    Show (ProtocolF p),
+    Show (ConfigWdMaybeF p RepoRemoteName)
+  ) =>
+  Show (RepoConfig p)
+
 instance DecodeTOML (RepoConfig ConfigPhaseToml) where
   tomlDecoder = do
     branches <- branchesDecoder
@@ -130,6 +152,7 @@ data DeleteCacheType
     DeleteCacheGlobal (Path Abs Dir)
   | -- | Delete specific repo.
     DeleteCacheLocal RepoPath
+  deriving stock (Eq, Show)
 
 type DeleteCacheF :: ConfigPhase -> Type
 type family DeleteCacheF p where
@@ -156,6 +179,20 @@ data Command p
   | -- | Searches for the pull request.
     SearchPullRequest (SearchPullRequestF p)
 
+deriving stock instance
+  ( Eq (DeleteCacheF p),
+    Eq (SearchCommitF p),
+    Eq (SearchPullRequestF p)
+  ) =>
+  Eq (Command p)
+
+deriving stock instance
+  ( Show (DeleteCacheF p),
+    Show (SearchCommitF p),
+    Show (SearchPullRequestF p)
+  ) =>
+  Show (Command p)
+
 type RepoF :: ConfigPhase -> Type
 type family RepoF p where
   RepoF ConfigPhaseArgs = RepoConfig ConfigPhaseArgs
@@ -175,3 +212,17 @@ data Config p = MkConfig
     -- | Repo params.
     repo :: RepoF p
   }
+
+deriving stock instance
+  ( Eq (ConfigF p Bool),
+    Eq (ConfigWdMaybeF p LogLevel),
+    Eq (RepoF p)
+  ) =>
+  Eq (Config p)
+
+deriving stock instance
+  ( Show (ConfigF p Bool),
+    Show (ConfigWdMaybeF p LogLevel),
+    Show (RepoF p)
+  ) =>
+  Show (Config p)

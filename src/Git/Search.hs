@@ -16,8 +16,8 @@ import Data.List.NonEmpty qualified as NE
 import Data.Text qualified as T
 import Data.Time.Relative (Format (verbosity))
 import Data.Time.Relative qualified as Time.Rel
-import Effectful.FileSystem.PathReader.Static qualified as PR
-import Effectful.FileSystem.PathWriter.Static qualified as PW
+import Effectful.FileSystem.PathReader.Dynamic qualified as PR
+import Effectful.FileSystem.PathWriter.Dynamic qualified as PW
 import Effectful.Process qualified as P
 import Effectful.Time.Static qualified as Time
 import Git.Search.Config (Env (coreConfig))

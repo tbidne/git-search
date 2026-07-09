@@ -10,7 +10,7 @@ import Git.Search.Prelude
 data LogLevel
   = LogLevelDebug
   | LogLevelInfo
-  deriving stock (Eq, Ord)
+  deriving stock (Eq, Ord, Show)
 
 instance DecodeTOML LogLevel where
   tomlDecoder =

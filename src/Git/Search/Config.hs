@@ -7,8 +7,8 @@ module Git.Search.Config
   )
 where
 
-import Effectful.FileSystem.PathReader.Static qualified as PR
-import Effectful.FileSystem.PathWriter.Static qualified as PW
+import Effectful.FileSystem.PathReader.Dynamic qualified as PR
+import Effectful.FileSystem.PathWriter.Dynamic qualified as PW
 import FileSystem.Path qualified as FS.Path
 import Git.Search.Config.Args (Args (command))
 import Git.Search.Config.Data
@@ -30,6 +30,7 @@ import Git.Search.Data
 import Git.Search.Prelude
 
 newtype Env = MkEnv {coreConfig :: Config ConfigPhaseEnv}
+  deriving stock (Eq, Show)
 
 -- | Evolves the CLI Args to runtime Env.
 toEnv ::
