@@ -4,7 +4,7 @@ module Integration.SearchCommit (tests) where
 
 import Git.Search.Config.Data
   ( Command (SearchCommit),
-    Config (MkConfig, clean, logColor, logLevel, repo),
+    Config (MkConfig, auth, clean, logColor, logLevel, repo),
     RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
   )
 import Git.Search.Logging.Data (LogLevel (LogLevelDebug))
@@ -36,7 +36,8 @@ testSearchCommitDefault = testProp1 desc "testSearchCommitDefault" $ do
       MkEnv
         { coreConfig =
             MkConfig
-              { clean = False,
+              { auth = Nothing,
+                clean = False,
                 logColor = True,
                 logLevel = Nothing,
                 repo =
@@ -95,7 +96,8 @@ testSearchCommitArgs = testProp1 desc "testSearchCommitArgs" $ do
       MkEnv
         { coreConfig =
             MkConfig
-              { clean = True,
+              { auth = Nothing,
+                clean = True,
                 logColor = False,
                 logLevel = Just LogLevelDebug,
                 repo =
@@ -138,7 +140,8 @@ testSearchCommitToml = testProp1 desc "testSearchCommitToml" $ do
       MkEnv
         { coreConfig =
             MkConfig
-              { clean = True,
+              { auth = Nothing,
+                clean = True,
                 logColor = False,
                 logLevel = Just LogLevelDebug,
                 repo =
@@ -197,7 +200,8 @@ testSearchCommitArgsOverridesToml = testProp1 desc "testSearchCommitArgsOverride
       MkEnv
         { coreConfig =
             MkConfig
-              { clean = False,
+              { auth = Nothing,
+                clean = False,
                 logColor = True,
                 logLevel = Nothing,
                 repo =

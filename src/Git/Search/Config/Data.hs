@@ -193,6 +193,13 @@ deriving stock instance
   ) =>
   Show (Command p)
 
+type AuthF :: ConfigPhase -> Type
+type family AuthF p where
+  AuthF ConfigPhaseArgs = Maybe OsString
+  AuthF ConfigPhaseToml = ()
+  AuthF ConfigPhaseMerged = Maybe OsString
+  AuthF ConfigPhaseEnv = Maybe OsString
+
 type RepoF :: ConfigPhase -> Type
 type family RepoF p where
   RepoF ConfigPhaseArgs = RepoConfig ConfigPhaseArgs
@@ -202,7 +209,9 @@ type family RepoF p where
 
 type Config :: ConfigPhase -> Type
 data Config p = MkConfig
-  { -- | Performs a clean clone of the repo. Otherwise runs 'fetch' if the
+  { -- | Github auth, for CI.
+    auth :: AuthF p,
+    -- | Performs a clean clone of the repo. Otherwise runs 'fetch' if the
     -- repo exists.
     clean :: ConfigF p Bool,
     -- | Log colors.
@@ -214,14 +223,16 @@ data Config p = MkConfig
   }
 
 deriving stock instance
-  ( Eq (ConfigF p Bool),
+  ( Eq (AuthF p),
+    Eq (ConfigF p Bool),
     Eq (ConfigWdMaybeF p LogLevel),
     Eq (RepoF p)
   ) =>
   Eq (Config p)
 
 deriving stock instance
-  ( Show (ConfigF p Bool),
+  ( Show (AuthF p),
+    Show (ConfigF p Bool),
     Show (ConfigWdMaybeF p LogLevel),
     Show (RepoF p)
   ) =>

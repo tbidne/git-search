@@ -22,7 +22,7 @@ import Effectful.Process qualified as P
 import Effectful.Time.Static qualified as Time
 import Git.Search.Config (Env (coreConfig))
 import Git.Search.Config.Data
-  ( Config (clean, repo),
+  ( Config (auth, clean, repo),
     DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
     RepoConfig (branches, remoteName),
   )
@@ -111,9 +111,11 @@ prToCommit ::
   RepoName ->
   Eff es Commit
 prToCommit prNum repoName = do
+  env <- ask @Env
+
   manager <- Network.newTlsManager
 
-  baseReq <- Network.mkJsonRequest baseUrl
+  baseReq <- Network.mkJsonRequest env.coreConfig.auth baseUrl
   pr <- Network.runJsonRequest @GitPullRequest baseUrl manager baseReq
 
   case pr.state of

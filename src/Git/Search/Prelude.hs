@@ -106,6 +106,7 @@ import FileSystem.OsString as X
     unsafeDecode,
     unsafeEncode,
   )
+import FileSystem.UTF8 as X (encodeUtf8)
 #if MIN_VERSION_GLASGOW_HASKELL(9, 14, 1, 0)
 import FileSystem.Path as X
   ( Abs,

@@ -5,7 +5,7 @@ where
 
 import Data.Map.Strict qualified as Map
 import Git.Search.Config.Data
-  ( Config (MkConfig, clean, logColor, logLevel, repo),
+  ( Config (MkConfig, auth, clean, logColor, logLevel, repo),
     RepoConfig (name),
   )
 import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseToml))
@@ -25,7 +25,8 @@ instance DecodeTOML Toml where
       MkToml
         { coreConfig =
             MkConfig
-              { clean,
+              { auth = (),
+                clean,
                 logColor,
                 logLevel,
                 repo

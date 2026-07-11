@@ -41,17 +41,27 @@ runNetwork = evalStaticRep MkNetwork
 newTlsManager :: (HasCallStack, Network :> es) => Eff es Manager
 newTlsManager = unsafeEff_ TLS.newTlsManager
 
-mkJsonRequest :: (HasCallStack, Network :> es) => String -> Eff es Request
-mkJsonRequest url = unsafeEff_ $ updateReq <$> mkReq
+mkJsonRequest :: (HasCallStack, Network :> es) => Maybe OsString -> String -> Eff es Request
+mkJsonRequest mAuth url = unsafeEff_ $ do
+  baseReq <- mkReq
+
+  authHeader <- case mAuth of
+    Nothing -> pure []
+    Just auth -> do
+      authBs <- encodeUtf8 . pack <$> decodeThrowM auth
+      pure [("Authorization", "Bearer " <> authBs)]
+
+  pure $ updateReq authHeader baseReq
   where
     mkReq = HttpClient.parseRequest url
-    updateReq r =
+    updateReq auth r =
       r
         { HttpClient.requestHeaders =
             [ ("Accept", "application/json;charset=utf-8,application/json"),
               -- Need this agent so github does not block us.
               ("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
             ]
+              ++ auth
         }
 
 runJsonRequest ::

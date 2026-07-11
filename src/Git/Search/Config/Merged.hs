@@ -9,7 +9,7 @@ where
 import Data.Map.Strict qualified as Map
 import Git.Search.Config.Args (Args (coreConfig))
 import Git.Search.Config.Data
-  ( Config (MkConfig, clean, logColor, logLevel, repo),
+  ( Config (MkConfig, auth, clean, logColor, logLevel, repo),
     RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
   )
 import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseMerged, ConfigPhaseToml))
@@ -34,7 +34,8 @@ mergeConfig args Nothing =
    in MkMergedConfig
         { coreConfig =
             MkConfig
-              { clean = mergeBoolFalse args.coreConfig.clean Nothing,
+              { auth = args.coreConfig.auth,
+                clean = mergeBoolFalse args.coreConfig.clean Nothing,
                 logColor = mergeBoolTrue args.coreConfig.logColor Nothing,
                 logLevel =
                   mergeMaybe args.coreConfig.logLevel Nothing,
@@ -80,7 +81,8 @@ mergeConfig args (Just toml) =
    in MkMergedConfig
         { coreConfig =
             MkConfig
-              { clean =
+              { auth = args.coreConfig.auth,
+                clean =
                   mergeBoolFalse
                     args.coreConfig.clean
                     toml.coreConfig.clean,
