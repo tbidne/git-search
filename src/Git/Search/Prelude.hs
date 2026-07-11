@@ -75,6 +75,7 @@ import Effectful.FileSystem.HandleReader.Static as X (HandleReader, runHandleRea
 import Effectful.FileSystem.HandleWriter.Dynamic as X (HandleWriter, runHandleWriter)
 import Effectful.FileSystem.PathReader.Dynamic as X (PathReader, runPathReader)
 import Effectful.FileSystem.PathWriter.Dynamic as X (PathWriter, runPathWriter)
+import Effectful.HTTP.Client.Static as X (Network, runNetwork)
 import Effectful.Optparse.Static as X (Optparse, osString, runOptparse, validOsPath)
 import Effectful.Process as X (Process, runProcess)
 import Effectful.Reader.Static as X (Reader, ask, asks, runReader)

@@ -33,7 +33,6 @@ import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseEnv))
 import Git.Search.Config.Toml (Toml)
 import Git.Search.Config.WithDisabled (WithDisabled (Disabled, With))
 import Git.Search.Logging qualified as Logging
-import Git.Search.Network (Network)
 import Git.Search.Prelude
 import System.IO qualified as IO
 import TOML qualified

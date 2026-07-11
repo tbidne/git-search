@@ -18,6 +18,7 @@ import Data.Time.Relative (Format (verbosity))
 import Data.Time.Relative qualified as Time.Rel
 import Effectful.FileSystem.PathReader.Dynamic qualified as PR
 import Effectful.FileSystem.PathWriter.Dynamic qualified as PW
+import Effectful.HTTP.Client.Static qualified as Eff.Http
 import Effectful.Process qualified as P
 import Effectful.Time.Static qualified as Time
 import Git.Search.Config (Env (coreConfig))
@@ -34,9 +35,8 @@ import Git.Search.Data
     RepoRemoteUri (unRepoRemoteUri),
   )
 import Git.Search.Logging qualified as Logging
-import Git.Search.Network (Network)
-import Git.Search.Network qualified as Network
 import Git.Search.Prelude
+import Network.HTTP.Client qualified as Http
 
 -- | Deletes the cache.
 deleteCache ::
@@ -113,10 +113,16 @@ prToCommit ::
 prToCommit prNum repoName = do
   env <- ask @Env
 
-  manager <- Network.newTlsManager
+  authHeader <- case env.coreConfig.auth of
+    Nothing -> pure []
+    Just auth -> do
+      authBs <- encodeUtf8 . pack <$> decodeThrowM auth
+      pure [("Authorization", "Bearer " <> authBs)]
 
-  baseReq <- Network.mkJsonRequest env.coreConfig.auth baseUrl
-  pr <- Network.runJsonRequest @GitPullRequest baseUrl manager baseReq
+  manager <- Eff.Http.newTlsManager
+  baseReq <- updateReq authHeader <$> Http.parseRequest baseUrl
+
+  pr <- Eff.Http.withResponse @GitPullRequest baseReq manager (Eff.Http.readResponseJson baseUrl)
 
   case pr.state of
     PullRequestOpen ->
@@ -143,6 +149,16 @@ prToCommit prNum repoName = do
           "/pulls/",
           prStr
         ]
+
+    updateReq hs r =
+      r
+        { Http.requestHeaders =
+            [ ("Accept", "application/json;charset=utf-8,application/json"),
+              -- Need this agent so github does not block us.
+              ("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+            ]
+              ++ hs
+        }
 
 data GitPullRequest = MkGitPullRequest
   { -- | Number of commits.

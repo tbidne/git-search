@@ -13,7 +13,6 @@ import Effectful.Dispatch.Dynamic qualified as Eff.Dyn
 import Effectful.FileSystem.HandleWriter.Dynamic qualified as HW
 import Effectful.Terminal.Dynamic qualified as Term
 import GHC.Clock qualified as CC
-import Git.Search.Network (runNetwork)
 import Git.Search.Prelude
 import Git.Search.Runner qualified
 import System.Environment qualified as Env

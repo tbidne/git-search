@@ -1,6 +1,5 @@
 module Main (main) where
 
-import Git.Search.Network (runNetwork)
 import Git.Search.Prelude hiding (IO)
 import Git.Search.Runner qualified
 import System.IO (IO)
