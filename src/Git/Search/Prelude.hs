@@ -43,7 +43,7 @@ import Control.Monad as X
     (>>=),
   )
 import Control.Monad.IO.Class as X (MonadIO, liftIO)
-import Data.Aeson as X (FromJSON, ToJSON)
+import Data.Aeson as X (FromJSON (parseJSON), ToJSON)
 import Data.Bifunctor as X (first)
 import Data.Bool as X (Bool (False, True), not, otherwise, (&&))
 import Data.ByteString as X (ByteString)

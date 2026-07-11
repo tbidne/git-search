@@ -392,7 +392,7 @@ remoteNameParser =
       [ OA.long "remote-name",
         OA.metavar "(STR | off)",
         OA.completeWith ["off"],
-        mkHelp "Remote name for fetching. Defaults to 'origin'."
+        mkHelpNoLine "Remote name for fetching. Defaults to 'origin'."
       ]
   where
     r = do

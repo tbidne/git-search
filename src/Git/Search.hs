@@ -11,8 +11,8 @@ module Git.Search
 where
 
 import Control.Exception.Utils qualified as Ex.Utils
+import Data.Aeson qualified as Asn
 import Data.List qualified as L
-import Data.List.NonEmpty qualified as NE
 import Data.Text qualified as T
 import Data.Time.Relative (Format (verbosity))
 import Data.Time.Relative qualified as Time.Rel
@@ -114,26 +114,23 @@ prToCommit prNum repoName = do
   manager <- Network.newTlsManager
 
   baseReq <- Network.mkJsonRequest baseUrl
-  pr <- Network.runJsonRequest @GitPullRequest commitsUrl manager baseReq
+  pr <- Network.runJsonRequest @GitPullRequest baseUrl manager baseReq
 
-  when (pr.state == "open")
-    $ Logging.logInfo
-    $ "Pull request "
-    ++ prStr
-    ++ " is currently open."
+  case pr.state of
+    PullRequestOpen ->
+      Logging.logInfo $ "Pull request " ++ prStr ++ " is currently open."
+    PullRequestClosed ->
+      if pr.merged
+        then
+          Logging.logDebug $ "Pull request " ++ prStr ++ " is merged."
+        else
+          Logging.logInfo $ "Pull request " ++ prStr ++ " is closed but unmerged."
 
-  commitsReq <- Network.mkJsonRequest commitsUrl
-  commits <- Network.runJsonRequest @[GitCommit] commitsUrl manager commitsReq
+  let commitStr = unpack pr.head.sha
 
-  case commits of
-    [] -> throwString "No commits found."
-    (c : cs) -> do
-      let latest = NE.last (c :| cs)
-          latestStr = unpack latest.sha
+  Logging.logDebug $ "Found commit (" ++ show pr.commits ++ "): " ++ commitStr
 
-      Logging.logDebug $ "Found commit: " ++ latestStr
-
-      MkCommit <$> encodeThrowM latestStr
+  MkCommit <$> encodeThrowM commitStr
   where
     prStr = show prNum
 
@@ -145,13 +142,28 @@ prToCommit prNum repoName = do
           prStr
         ]
 
-    commitsUrl = baseUrl <> "/commits"
-
-newtype GitPullRequest = MkGitPullRequest
-  { state :: Text
+data GitPullRequest = MkGitPullRequest
+  { -- | Number of commits.
+    commits :: Word32,
+    -- | HEAD commit.
+    head :: GitCommit,
+    -- | Merged status.
+    merged :: Bool,
+    -- | State.
+    state :: PullRequestState
   }
   deriving stock (Generic)
   deriving anyclass (FromJSON)
+
+data PullRequestState
+  = PullRequestClosed
+  | PullRequestOpen
+
+instance FromJSON PullRequestState where
+  parseJSON = Asn.withText "PullRequestState" $ \case
+    "open" -> pure PullRequestOpen
+    "closed" -> pure PullRequestClosed
+    other -> fail $ unpack $ "Unrecognized state: " <> other
 
 newtype GitCommit = MkGitCommit
   { sha :: Text
