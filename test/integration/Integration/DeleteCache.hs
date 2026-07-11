@@ -4,7 +4,7 @@ module Integration.DeleteCache (tests) where
 
 import Git.Search.Config.Data
   ( Command (DeleteCache),
-    Config (MkConfig, clean, logColor, logLevel, repo),
+    Config (MkConfig, auth, clean, logColor, logLevel, repo),
     DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
     RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
   )
@@ -31,7 +31,8 @@ testDeleteGlobal = testProp1 desc "testDeleteGlobal" $ do
       MkEnv
         { coreConfig =
             MkConfig
-              { clean = False,
+              { auth = Nothing,
+                clean = False,
                 logColor = True,
                 logLevel = Nothing,
                 repo =
@@ -62,7 +63,8 @@ testDeleteLocal = testProp1 desc "testDeleteLocal" $ do
       MkEnv
         { coreConfig =
             MkConfig
-              { clean = False,
+              { auth = Nothing,
+                clean = False,
                 logColor = True,
                 logLevel = Nothing,
                 repo =

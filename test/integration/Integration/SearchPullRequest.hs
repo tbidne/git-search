@@ -4,7 +4,7 @@ module Integration.SearchPullRequest (tests) where
 
 import Git.Search.Config.Data
   ( Command (SearchPullRequest),
-    Config (MkConfig, clean, logColor, logLevel, repo),
+    Config (MkConfig, auth, clean, logColor, logLevel, repo),
     RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
   )
 import Git.Search.Logging.Data (LogLevel (LogLevelDebug))
@@ -38,7 +38,8 @@ testSearchPullRequestDefault = testProp1 desc "testSearchPullRequestDefault" $ d
       MkEnv
         { coreConfig =
             MkConfig
-              { clean = False,
+              { auth = Nothing,
+                clean = False,
                 logColor = True,
                 logLevel = Nothing,
                 repo =
@@ -94,7 +95,8 @@ testSearchPullRequestArgs = testProp1 desc "testSearchPullRequestArgs" $ do
       MkEnv
         { coreConfig =
             MkConfig
-              { clean = True,
+              { auth = Nothing,
+                clean = True,
                 logColor = False,
                 logLevel = Just LogLevelDebug,
                 repo =
@@ -144,7 +146,8 @@ testSearchPullRequestToml = testProp1 desc "testSearchPullRequestToml" $ do
       MkEnv
         { coreConfig =
             MkConfig
-              { clean = True,
+              { auth = Nothing,
+                clean = True,
                 logColor = False,
                 logLevel = Just LogLevelDebug,
                 repo =
@@ -204,7 +207,8 @@ testSearchPullRequestArgsOverridesToml = testProp1 desc "testSearchPullRequestAr
       MkEnv
         { coreConfig =
             MkConfig
-              { clean = False,
+              { auth = Nothing,
+                clean = False,
                 logColor = True,
                 logLevel = Nothing,
                 repo =

@@ -13,7 +13,7 @@ import FileSystem.Path qualified as FS.Path
 import Git.Search.Config.Args (Args (command))
 import Git.Search.Config.Data
   ( Command (DeleteCache, SearchCommit, SearchPullRequest),
-    Config (MkConfig, clean, logColor, logLevel, repo),
+    Config (MkConfig, auth, clean, logColor, logLevel, repo),
     DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
     RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
   )
@@ -120,7 +120,8 @@ toEnv args mToml = do
     ( MkEnv
         { coreConfig =
             MkConfig
-              { clean = merged.coreConfig.clean,
+              { auth = merged.coreConfig.auth,
+                clean = merged.coreConfig.clean,
                 logColor = merged.coreConfig.logColor,
                 logLevel = merged.coreConfig.logLevel,
                 repo =

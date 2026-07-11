@@ -42,5 +42,7 @@ jobs:
         run: cabal test integration
 
       - name: Functional tests
-        shell: bash
-        run: TEST_FUNCTIONAL=clone cabal test functional
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TEST_FUNCTIONAL: clone
+        run: cabal test functional

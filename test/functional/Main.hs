@@ -29,12 +29,14 @@ main = do
     Just cmd -> do
       cloneTimeRef <- IORef.newIORef Nothing
 
+      mAuth <- Env.lookupEnv "GH_TOKEN"
+
       case T.toLower (T.strip (pack cmd)) of
         "clone" ->
           runTests
             $ testNixpkgsCommitClone cloneTimeRef
-            : mainTests cloneTimeRef
-        _ -> runTests (mainTests cloneTimeRef)
+            : mainTests cloneTimeRef mAuth
+        _ -> runTests (mainTests cloneTimeRef mAuth)
   where
     dontRun = IO.putStrLn "*** Functional tests disabled. Enable with TEST_FUNCTIONAL=1 ***"
 
@@ -45,10 +47,10 @@ main = do
           AllSucceed
           tests
 
-    mainTests ref =
+    mainTests ref mAuth =
       [ testNixpkgsCommitFetch ref,
         testNixpkgsCommitBranches,
-        testNixpkgsPullRequest
+        testNixpkgsPullRequest mAuth
       ]
 
 testNixpkgsCommitClone :: IORef (Maybe Double) -> TestTree
@@ -103,14 +105,18 @@ testNixpkgsCommitBranches = testCase desc $ do
         "- origin/nixpkgs-unstable"
       ]
 
-testNixpkgsPullRequest :: TestTree
-testNixpkgsPullRequest = testCase desc $ do
+testNixpkgsPullRequest :: Maybe String -> TestTree
+testNixpkgsPullRequest mAuth = testCase desc $ do
   results <- Set.fromList <$> runSearch args
   assertResults expected results
   where
     desc = "Searches pr in nixos/nixpkgs"
 
-    args =
+    args = case mAuth of
+      Nothing -> baseArgs
+      Just auth -> "--auth" : auth : baseArgs
+
+    baseArgs =
       mkArgsCmd
         [ "search-pr",
           "510883"

@@ -15,7 +15,7 @@ import Effectful.Optparse.Static qualified as EOA
 import Git.Search.Config.Args.TH qualified as TH
 import Git.Search.Config.Data
   ( Command (DeleteCache, SearchCommit, SearchPullRequest),
-    Config (MkConfig, clean, logColor, logLevel, repo),
+    Config (MkConfig, auth, clean, logColor, logLevel, repo),
     RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
   )
 import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseArgs))
@@ -129,6 +129,7 @@ argsParser = do
     <**> OA.helper
   where
     p = do
+      auth <- authParser
       ~(logColor, logLevel) <- parseLogging
       ~(branches, domain, name, path, protocol, remoteName) <- parseRepo
       ~(clean, config) <- parseMisc
@@ -141,7 +142,8 @@ argsParser = do
             config,
             coreConfig =
               MkConfig
-                { clean,
+                { auth,
+                  clean,
                   logColor,
                   logLevel,
                   repo =
@@ -177,6 +179,15 @@ argsParser = do
         $ (,)
         <$> cleanParser
         <*> configParser
+
+authParser :: Parser (Maybe OsString)
+authParser =
+  OA.optional
+    $ OA.option
+      osString
+    $ mconcat
+      [ OA.long "auth"
+      ]
 
 branchesParser :: Parser (Maybe (WithDisabled [OsString]))
 branchesParser =
