@@ -46,14 +46,13 @@ toEnv args mToml = do
 
   command <- case args.command of
     DeleteCache () -> do
-      root <- getCacheRoot
-
       case merged.coreConfig.repo.name of
-        Nothing -> pure $ DeleteCache (DeleteCacheGlobal root)
-        Just (MkRepoName name) -> do
-          pathRel <- FS.Path.parseRelDir name
-          let path = root <</>> pathRel
-              repoPath = MkRepoPath path
+        Nothing ->
+          DeleteCache . DeleteCacheGlobal <$> getCacheRoot
+        Just repoName -> do
+          -- NOTE: Ignoring merged.coreConfig.repo.path as it is irrelevant
+          -- for deleting the cache.
+          repoPath <- getRepoPath repoName Nothing
           pure $ DeleteCache (DeleteCacheLocal repoPath)
     SearchCommit commit -> do
       repoName@(MkRepoName name) <- case merged.coreConfig.repo.name of
@@ -143,14 +142,18 @@ getRepoPath ::
     PathReader :> es,
     PathWriter :> es
   ) =>
+  -- | Repo name.
   RepoName ->
+  -- | Config repo path, on the file-system.
   Maybe OsPath ->
   Eff es RepoPath
 getRepoPath (MkRepoName name) Nothing = do
+  -- No config repo path: derived path is cache/<name>.
   root <- getCacheRoot
   pathRel <- FS.Path.parseRelDir name
   pure $ MkRepoPath $ root <</>> pathRel
 getRepoPath _ (Just rawPath) = do
+  -- Repo path p: Use it.
   path <- PR.expandTilde rawPath
   MkRepoPath <$> FS.Path.parseAbsDir path
 
