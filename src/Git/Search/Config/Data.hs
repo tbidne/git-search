@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Git.Search.Config.Data
@@ -7,9 +8,14 @@ module Git.Search.Config.Data
 
     -- * Command
     Command (..),
+    _DeleteCache,
+    _SearchCommit,
+    _SearchPullRequest,
 
     -- ** Env
     DeleteCacheType (..),
+    _DeleteCacheGlobal,
+    _DeleteCacheLocal,
   )
 where
 
@@ -237,3 +243,8 @@ deriving stock instance
     Show (RepoF p)
   ) =>
   Show (Config p)
+
+makeFieldLabelsNoPrefix ''RepoConfig
+makeFieldLabelsNoPrefix ''Config
+makePrisms ''DeleteCacheType
+makePrisms ''Command

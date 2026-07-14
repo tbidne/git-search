@@ -38,6 +38,9 @@ jobs:
       - name: Compile
         run: cabal build
 
+      - name: Unit tests
+        run: cabal test unit
+
       - name: Integration tests
         run: cabal test integration
 

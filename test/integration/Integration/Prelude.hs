@@ -39,7 +39,6 @@ module Integration.Prelude
 where
 
 import Data.Text qualified as T
-import Effectful.Dispatch.Dynamic (interpret_)
 import Effectful.FileSystem.PathReader.Dynamic qualified as PR
 import Effectful.FileSystem.PathWriter.Dynamic qualified as PW
 import FileSystem.Path qualified as FS.Path

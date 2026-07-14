@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Git.Search.Config.Args
   ( Args (..),
@@ -62,6 +63,7 @@ data Args = MkArgs
     config :: Maybe (WithDisabled OsPath),
     coreConfig :: Config ConfigPhaseArgs
   }
+  deriving stock (Eq, Show)
 
 getArgs :: (Optparse :> es) => Eff es Args
 getArgs = EOA.execParser parserInfoArgs
@@ -130,9 +132,9 @@ argsParser = do
   where
     p = do
       auth <- authParser
-      ~(logColor, logLevel) <- parseLogging
-      ~(branches, domain, name, path, protocol, remoteName) <- parseRepo
-      ~(clean, config) <- parseMisc
+      ~(logColor, logLevel) <- loggingParser
+      ~(branches, domain, name, path, protocol, remoteName) <- repoParser
+      ~(clean, config) <- miscParser
 
       command <- commandParser
 
@@ -158,28 +160,6 @@ argsParser = do
                 }
           }
 
-    parseLogging =
-      OA.parserOptionGroup "Logging options:"
-        $ (,)
-        <$> logColorParser
-        <*> logLevelParser
-
-    parseRepo =
-      OA.parserOptionGroup "Repository options:"
-        $ (,,,,,)
-        <$> branchesParser
-        <*> domainParser
-        <*> nameParser
-        <*> pathParser
-        <*> protocolParser
-        <*> remoteNameParser
-
-    parseMisc =
-      OA.parserOptionGroup "Miscellaneous options:"
-        $ (,)
-        <$> cleanParser
-        <*> configParser
-
 authParser :: Parser (Maybe OsString)
 authParser =
   OA.optional
@@ -189,104 +169,12 @@ authParser =
       [ OA.long "auth"
       ]
 
-branchesParser :: Parser (Maybe (WithDisabled [OsString]))
-branchesParser =
-  OA.optional
-    $ OA.option
-      r
-    $ mconcat
-      [ OA.long "branches",
-        OA.metavar "(STR | off)",
-        OA.completeWith ["off"],
-        mkHelp
-          $ mconcat
-            [ "Filters the search via space-separated branches e.g. ",
-              "'*master *some-branch'. Note that the searched branches includes ",
-              "the remote (origin), so a prefix '*' may be desired."
-            ]
-      ]
-  where
-    r = do
-      s <- OA.str
-      WD.disabledParser s $ do
-        let strs = fmap T.strip . T.words $ s
-        traverse (encodeFail . unpack) strs
-
-cleanParser :: Parser (Maybe Bool)
-cleanParser =
-  switchParser
-    $ mconcat
-      [ OA.long "clean",
-        mkHelp
-          $ mconcat
-            [ "Performs a clean clone of the repo, overwriting any previous ",
-              "clones. Otherwise runs 'fetch' if the repo has been ",
-              "previously cloned."
-            ]
-      ]
-
-commandParser :: Parser (Command ConfigPhaseArgs)
-commandParser =
-  OA.hsubparser
-    ( mconcat
-        [ mkCommand "search-commit" searchCommitParser searchCommitHelp,
-          mkCommand "search-pr" searchPullRequestParser searchPullRequestHelp,
-          OA.commandGroup "Search commands:"
-        ]
-    )
-    <|> OA.hsubparser
-      ( mconcat
-          [ mkCommand "delete-cache" deleteCacheParser deleteCacheHelp,
-            OA.commandGroup "Miscellaneous commands:"
-          ]
-      )
-  where
-    searchCommitParser = SearchCommit <$> commitParser
-    searchCommitHelp = mkCmdDescStr "Searches for a commit."
-
-    searchPullRequestParser = SearchPullRequest <$> pullRequestParser
-    searchPullRequestHelp =
-      mkCmdDescStrNoLine
-        "Searches for a pull-request. Only available for github.com"
-
-    deleteCacheParser = pure (DeleteCache ())
-    deleteCacheHelp = mkCmdDescStr "Deletes the cache."
-
-configParser :: Parser (Maybe (WithDisabled OsPath))
-configParser =
-  OA.optional
-    $ OA.option
-      r
-    $ mconcat
-      [ OA.long "config",
-        OA.metavar "(PATH | off)",
-        OA.completeWith ["off"],
-        mkHelpNoLine
-          $ mconcat
-            [ "Path to TOML config. We also look in XDG config e.g. ",
-              "~/.config/git-search/config.toml."
-            ]
-      ]
-  where
-    r = do
-      s <- OA.str
-      WD.disabledParser s $ encodeValidFail (unpack s)
-
-domainParser :: Parser (Maybe (WithDisabled Domain))
-domainParser =
-  OA.optional
-    $ OA.option
-      r
-    $ mconcat
-      [ OA.long "domain",
-        OA.metavar "(STR | off)",
-        OA.completeWith ["off"],
-        mkHelp "Repository domain. Defaults to github.com."
-      ]
-  where
-    r = do
-      s <- OA.str
-      WD.disabledParser s (fmap MkDomain . encodeFail . unpack $ s)
+loggingParser :: Parser (Maybe Bool, Maybe (WithDisabled LogLevel))
+loggingParser =
+  OA.parserOptionGroup "Logging options:"
+    $ (,)
+    <$> logColorParser
+    <*> logLevelParser
 
 logColorParser :: Parser (Maybe Bool)
 logColorParser =
@@ -315,44 +203,63 @@ logLevelParser =
         "info" -> pure LogLevelInfo
         other -> fail $ "Unrecognized log-level: " ++ show other
 
-commitParser :: Parser Commit
-commitParser =
-  OA.argument
-    (MkCommit <$> osString)
-    $ mconcat
-      [ OA.metavar "HASH",
-        mkHelp "Commit hash for which we want to search."
-      ]
+repoParser ::
+  Parser
+    ( Maybe (WithDisabled [OsString]),
+      Maybe (WithDisabled Domain),
+      Maybe (WithDisabled RepoName),
+      Maybe (WithDisabled OsString),
+      Maybe (WithDisabled Protocol),
+      Maybe (WithDisabled RepoRemoteName)
+    )
+repoParser =
+  OA.parserOptionGroup "Repository options:"
+    $ (,,,,,)
+    <$> branchesParser
+    <*> domainParser
+    <*> nameParser
+    <*> pathParser
+    <*> protocolParser
+    <*> remoteNameParser
 
-pullRequestParser :: Parser Word32
-pullRequestParser =
-  OA.argument
-    OA.auto
-    $ mconcat
-      [ OA.metavar "INT",
-        mkHelp "Positive integer pull request id."
-      ]
-
-pathParser :: Parser (Maybe (WithDisabled OsPath))
-pathParser =
+branchesParser :: Parser (Maybe (WithDisabled [OsString]))
+branchesParser =
   OA.optional
     $ OA.option
       r
     $ mconcat
-      [ OA.long "path",
-        OA.metavar "(PATH | off)",
-        OA.completer EOC.compgenCwdDirsCompleter,
+      [ OA.long "branches",
+        OA.metavar "(STR | off)",
+        OA.completeWith ["off"],
         mkHelp
           $ mconcat
-            [ "Overrides the default cache location for the repository clone. ",
-              "Useful when the repo already exists on the file-system, and we ",
-              "do not want to create a duplicate."
+            [ "Filters the search via space-separated branches e.g. ",
+              "'*master *some-branch'. Note that the searched branches includes ",
+              "the remote (origin), so a prefix '*' may be desired."
             ]
       ]
   where
     r = do
       s <- OA.str
-      WD.disabledParser s (encodeValidFail . unpack $ s)
+      WD.disabledParser s $ do
+        let strs = fmap T.strip . T.words $ s
+        traverse (encodeFail . unpack) strs
+
+domainParser :: Parser (Maybe (WithDisabled Domain))
+domainParser =
+  OA.optional
+    $ OA.option
+      r
+    $ mconcat
+      [ OA.long "domain",
+        OA.metavar "(STR | off)",
+        OA.completeWith ["off"],
+        mkHelp "Repository domain. Defaults to github.com."
+      ]
+  where
+    r = do
+      s <- OA.str
+      WD.disabledParser s (fmap MkDomain . encodeFail . unpack $ s)
 
 nameParser :: Parser (Maybe (WithDisabled RepoName))
 nameParser =
@@ -374,6 +281,28 @@ nameParser =
     r = do
       s <- OA.str
       WD.disabledParser s (fmap MkRepoName . encodeFail . unpack $ s)
+
+pathParser :: Parser (Maybe (WithDisabled OsPath))
+pathParser =
+  OA.optional
+    $ OA.option
+      r
+    $ mconcat
+      [ OA.long "path",
+        OA.metavar "(PATH | off)",
+        OA.completer EOC.compgenCwdDirsCompleter,
+        OA.completeWith ["off"],
+        mkHelp
+          $ mconcat
+            [ "Overrides the default cache location for the repository clone. ",
+              "Useful when the repo already exists on the file-system, and we ",
+              "do not want to create a duplicate."
+            ]
+      ]
+  where
+    r = do
+      s <- OA.str
+      WD.disabledParser s (encodeValidFail . unpack $ s)
 
 protocolParser :: Parser (Maybe (WithDisabled Protocol))
 protocolParser =
@@ -409,6 +338,92 @@ remoteNameParser =
     r = do
       s <- OA.str
       WD.disabledParser s (MkRepoRemoteName <$> encodeFail (unpack s))
+
+miscParser :: Parser (Maybe Bool, Maybe (WithDisabled OsPath))
+miscParser =
+  OA.parserOptionGroup "Miscellaneous options:"
+    $ (,)
+    <$> cleanParser
+    <*> configParser
+
+cleanParser :: Parser (Maybe Bool)
+cleanParser =
+  switchParser
+    $ mconcat
+      [ OA.long "clean",
+        mkHelp
+          $ mconcat
+            [ "Performs a clean clone of the repo, overwriting any previous ",
+              "clones. Otherwise runs 'fetch' if the repo has been ",
+              "previously cloned."
+            ]
+      ]
+
+configParser :: Parser (Maybe (WithDisabled OsPath))
+configParser =
+  OA.optional
+    $ OA.option
+      r
+    $ mconcat
+      [ OA.long "config",
+        OA.metavar "(PATH | off)",
+        OA.completer EOC.compgenCwdPathsCompleter,
+        OA.completeWith ["off"],
+        mkHelpNoLine
+          $ mconcat
+            [ "Path to TOML config. We also look in XDG config e.g. ",
+              "~/.config/git-search/config.toml."
+            ]
+      ]
+  where
+    r = do
+      s <- OA.str
+      WD.disabledParser s $ encodeValidFail (unpack s)
+
+commandParser :: Parser (Command ConfigPhaseArgs)
+commandParser =
+  OA.hsubparser
+    ( mconcat
+        [ mkCommand "search-commit" searchCommitParser searchCommitHelp,
+          mkCommand "search-pr" searchPullRequestParser searchPullRequestHelp,
+          OA.commandGroup "Search commands:"
+        ]
+    )
+    <|> OA.hsubparser
+      ( mconcat
+          [ mkCommand "delete-cache" deleteCacheParser deleteCacheHelp,
+            OA.commandGroup "Miscellaneous commands:"
+          ]
+      )
+  where
+    searchCommitParser = SearchCommit <$> commitParser
+    searchCommitHelp = mkCmdDescStr "Searches for a commit."
+
+    searchPullRequestParser = SearchPullRequest <$> pullRequestParser
+    searchPullRequestHelp =
+      mkCmdDescStrNoLine
+        "Searches for a pull-request. Only available for github.com"
+
+    deleteCacheParser = pure (DeleteCache ())
+    deleteCacheHelp = mkCmdDescStr "Deletes the cache."
+
+commitParser :: Parser Commit
+commitParser =
+  OA.argument
+    (MkCommit <$> osString)
+    $ mconcat
+      [ OA.metavar "HASH",
+        mkHelp "Commit hash for which we want to search."
+      ]
+
+pullRequestParser :: Parser Word32
+pullRequestParser =
+  OA.argument
+    OA.auto
+    $ mconcat
+      [ OA.metavar "INT",
+        mkHelp "Positive integer pull request id."
+      ]
 
 version :: Parser (a -> a)
 version = OA.infoOption versLong (OA.long "version" <> OA.short 'v' <> OA.hidden)
@@ -520,3 +535,5 @@ toChunk i other = fmap (Pretty.indent i) . Chunk.stringChunk $ other
 
 line :: Chunk Doc
 line = Chunk (Just Pretty.softline)
+
+makeFieldLabelsNoPrefix ''Args

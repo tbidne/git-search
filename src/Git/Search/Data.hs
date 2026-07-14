@@ -1,5 +1,10 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 module Git.Search.Data
   ( Protocol (..),
+    _ProtocolHttps,
+    _ProtocolSsh,
     Commit (..),
     Domain (..),
     RepoPath (..),
@@ -56,3 +61,11 @@ newtype RepoRemoteUri = MkRepoRemoteUri {unRepoRemoteUri :: OsString}
 newtype RepoName = MkRepoName {unRepoName :: OsString}
   deriving stock (Eq, Ord, Show)
   deriving (DecodeTOML) via OsStringToml
+
+makePrisms ''Protocol
+makeFieldLabelsNoPrefix ''Commit
+makeFieldLabelsNoPrefix ''Domain
+makeFieldLabelsNoPrefix ''RepoPath
+makeFieldLabelsNoPrefix ''RepoRemoteName
+makeFieldLabelsNoPrefix ''RepoRemoteUri
+makeFieldLabelsNoPrefix ''RepoName

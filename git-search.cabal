@@ -33,6 +33,7 @@ common common-lang
     ExplicitNamespaces
     NoFieldSelectors
     NoImplicitPrelude
+    OverloadedLabels
     OverloadedRecordDot
     OverloadedStrings
     PatternSynonyms
@@ -78,6 +79,8 @@ library
     , gitrev-typed           ^>=0.1
     , http-client            >=0.5.9     && <0.8
     , http-client-effectful  ^>=0.1
+    , optics-core            ^>=0.4
+    , optics-th              ^>=0.4
     , optparse-applicative   ^>=0.19.0.0
     , optparse-effectful     ^>=0.1
     , os-string              ^>=2.0.0
@@ -101,6 +104,26 @@ executable git-search
   hs-source-dirs: app
   ghc-options:    -threaded -with-rtsopts=-N
 
+test-suite unit
+  import:         common-lang
+  type:           exitcode-stdio-1.0
+  main-is:        Main.hs
+  other-modules:
+    Unit.Git.Search.Config
+    Unit.Git.Search.Config.Args
+    Unit.Prelude
+
+  build-depends:
+    , base
+    , fs-effectful
+    , git-search
+    , hedgehog        >=1.0.2   && <1.8
+    , tasty           >=1.1.0.3 && <1.6
+    , tasty-hedgehog  >=1.2.0.0 && <1.5
+    , tasty-hunit     >=0.9     && <0.11
+
+  hs-source-dirs: test/unit
+
 test-suite integration
   import:         common-lang
   type:           exitcode-stdio-1.0
@@ -113,12 +136,11 @@ test-suite integration
 
   build-depends:
     , base
-    , effectful
     , fs-effectful
     , git-search
-    , hedgehog        >=1.0.2   && <1.8
-    , tasty           >=1.1.0.3 && <1.6
-    , tasty-hedgehog  >=1.2.0.0 && <1.5
+    , hedgehog
+    , tasty
+    , tasty-hedgehog
     , text
 
   hs-source-dirs: test/integration
@@ -134,7 +156,7 @@ test-suite functional
     , fs-effectful
     , git-search
     , tasty
-    , tasty-hunit         >=0.9 && <0.11
+    , tasty-hunit
     , terminal-effectful
     , text
 

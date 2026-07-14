@@ -1,3 +1,6 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 module Git.Search.Config.Toml
   ( Toml (..),
   )
@@ -62,3 +65,5 @@ decodeSwitch =
     "off" -> pure False
     "on" -> pure True
     other -> fail $ "Unrecognized: " ++ other
+
+makeFieldLabelsNoPrefix ''Toml

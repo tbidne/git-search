@@ -8,7 +8,6 @@ import Data.List qualified as L
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text qualified as T
-import Effectful.Dispatch.Dynamic (interpret_)
 import Effectful.Dispatch.Dynamic qualified as Eff.Dyn
 import Effectful.FileSystem.HandleWriter.Dynamic qualified as HW
 import Effectful.Terminal.Dynamic qualified as Term

@@ -69,6 +69,11 @@ import Data.Tuple as X (fst, snd)
 import Data.Word as X (Word32)
 import Effectful as X (Eff, IOE, runEff, type (:>))
 import Effectful.Concurrent as X (Concurrent, runConcurrent)
+import Effectful.Dispatch.Dynamic as X
+  ( interpret,
+    interpret_,
+    reinterpret,
+  )
 import Effectful.Dynamic.Utils as X (showEffectCons)
 import Effectful.FileSystem.FileReader.Static as X (FileReader, runFileReader)
 import Effectful.FileSystem.HandleReader.Static as X (HandleReader, runHandleReader)
@@ -145,6 +150,19 @@ import GHC.Num as X (fromInteger, (*), (+), (-))
 import GHC.Real as X (floor)
 import GHC.Show as X (Show (show))
 import GHC.Stack.Types as X (HasCallStack)
+import Optics.Core as X
+  ( A_Lens,
+    LabelOptic (labelOptic),
+    Lens,
+    Lens',
+    lens,
+    prism,
+    set',
+    view,
+    (%),
+    (^.),
+  )
+import Optics.TH as X (makeFieldLabelsNoPrefix, makePrisms)
 import System.Exit as X (ExitCode (ExitFailure, ExitSuccess))
 import System.IO as X (IO)
 import TOML as X (DecodeTOML (tomlDecoder), getFieldOptWith, getFieldWith)

@@ -1,9 +1,15 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Git.Search.Config
-  ( Env (..),
+  ( -- * Env
+    Env (..),
     toEnv,
+
+    -- * Misc
+    getRepoPath,
   )
 where
 
@@ -137,6 +143,9 @@ toEnv args mToml = do
       command
     )
 
+-- | Returns the file-system path to use for the repository clone.
+-- If we are given an explicit path to use, use it. Otherwise, derived
+-- path is <xdg_cache>/<repo_name>.
 getRepoPath ::
   ( HasCallStack,
     PathReader :> es,
@@ -185,3 +194,5 @@ getCacheRoot = do
 getCacheDir :: (HasCallStack, PathReader :> es) => Eff es (Path Abs Dir)
 getCacheDir =
   PR.getXdgCache [osstr|git-search|] >>= FS.Path.parseAbsDir
+
+makeFieldLabelsNoPrefix ''Env
