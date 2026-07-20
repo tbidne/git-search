@@ -51,75 +51,9 @@ toEnv args mToml = do
   let merged = mergeConfig args mToml
 
   command <- case args.command of
-    DeleteCache () -> do
-      case merged.coreConfig.repo.name of
-        Nothing ->
-          DeleteCache . DeleteCacheGlobal <$> getCacheRoot
-        Just repoName -> do
-          -- NOTE: Ignoring merged.coreConfig.repo.path as it is irrelevant
-          -- for deleting the cache.
-          repoPath <- getRepoPath repoName Nothing
-          pure $ DeleteCache (DeleteCacheLocal repoPath)
-    SearchCommit commit -> do
-      repoName@(MkRepoName name) <- case merged.coreConfig.repo.name of
-        Just n -> pure n
-        Nothing ->
-          throwString
-            $ mconcat
-              [ "search-commit: Repository name must be specified by CLI ",
-                "args or Toml config."
-              ]
-
-      let domain = merged.coreConfig.repo.domain.unDomain
-          protocol = merged.coreConfig.repo.protocol
-
-          -- OsString not OsPath since we want slashes preserved.
-          prefix = case protocol of
-            ProtocolHttps -> [osstr|https://|] <> domain <> [osstr|/|]
-            ProtocolSsh -> [osstr|git@|] <> domain <> [osstr|:|]
-
-          src = prefix <> name
-
-          repoSrc = MkRepoRemoteUri src
-
-      repoPath <- getRepoPath repoName merged.coreConfig.repo.path
-
-      pure $ SearchCommit (commit, repoPath, repoSrc)
-    SearchPullRequest prNum -> do
-      repoName@(MkRepoName name) <- case merged.coreConfig.repo.name of
-        Just n -> pure n
-        Nothing ->
-          throwString
-            $ mconcat
-              [ "search-pr: Repository name must be specified by CLI ",
-                "args or Toml config."
-              ]
-
-      let domain = merged.coreConfig.repo.domain.unDomain
-          protocol = merged.coreConfig.repo.protocol
-
-      unless (domain == [osstr|github.com|]) $ do
-        throwString
-          $ "search-pr: --domain must be github.com, not: "
-          ++ decodeLenient domain
-
-      case protocol of
-        ProtocolHttps -> pure ()
-        ProtocolSsh ->
-          throwString "search-pr: --protocol must be https, not: ssh"
-
-      let -- OsString not OsPath since we want slashes preserved.
-          prefix = case merged.coreConfig.repo.protocol of
-            ProtocolHttps -> [osstr|https://|] <> domain <> [osstr|/|]
-            ProtocolSsh -> [osstr|git@|] <> domain <> [osstr|:|]
-
-          src = prefix <> name
-
-          repoSrc = MkRepoRemoteUri src
-
-      repoPath <- getRepoPath repoName merged.coreConfig.repo.path
-
-      pure $ SearchPullRequest (prNum, repoPath, repoSrc, repoName)
+    DeleteCache () -> mkDeleteCache merged
+    SearchCommit commit -> mkSearchCommit merged commit
+    SearchPullRequest prNum -> mkSearchPullRequest merged prNum
 
   pure
     ( MkEnv
@@ -142,6 +76,58 @@ toEnv args mToml = do
         },
       command
     )
+  where
+    mkDeleteCache merged =
+      case merged.coreConfig.repo.name of
+        Nothing ->
+          DeleteCache . DeleteCacheGlobal <$> getCacheRoot
+        Just repoName -> do
+          -- NOTE: Ignoring merged.coreConfig.repo.path as it is irrelevant
+          -- for deleting the cache.
+          repoPath <- getRepoPath repoName Nothing
+          pure $ DeleteCache (DeleteCacheLocal repoPath)
+
+    mkSearchCommit merged commit = do
+      repoName@(MkRepoName name) <- getName "search-commit" merged
+
+      let domain = merged.coreConfig.repo.domain.unDomain
+          protocol = merged.coreConfig.repo.protocol
+
+          prefix = case protocol of
+            ProtocolHttps -> mkHttps domain
+            ProtocolSsh -> mkSsh domain
+
+          src = prefix <> name
+
+          repoSrc = MkRepoRemoteUri src
+
+      repoPath <- getRepoPath repoName merged.coreConfig.repo.path
+
+      pure $ SearchCommit (commit, repoPath, repoSrc)
+
+    mkSearchPullRequest merged prNum = do
+      repoName@(MkRepoName name) <- getName "search-pr" merged
+
+      let domain = merged.coreConfig.repo.domain.unDomain
+          protocol = merged.coreConfig.repo.protocol
+
+      unless (domain == [osstr|github.com|]) $ do
+        throwString
+          $ "search-pr: --domain must be github.com, not: "
+          ++ decodeLenient domain
+
+      prefix <- case protocol of
+        ProtocolHttps -> pure $ mkHttps domain
+        ProtocolSsh ->
+          throwString "search-pr: --protocol must be https, not: ssh"
+
+      let src = prefix <> name
+
+          repoSrc = MkRepoRemoteUri src
+
+      repoPath <- getRepoPath repoName merged.coreConfig.repo.path
+
+      pure $ SearchPullRequest (prNum, repoPath, repoSrc, repoName)
 
 -- | Returns the file-system path to use for the repository clone.
 -- If we are given an explicit path to use, use it. Otherwise, derived
@@ -194,5 +180,23 @@ getCacheRoot = do
 getCacheDir :: (HasCallStack, PathReader :> es) => Eff es (Path Abs Dir)
 getCacheDir =
   PR.getXdgCache [osstr|git-search|] >>= FS.Path.parseAbsDir
+
+getName :: (HasCallStack) => String -> MergedConfig -> Eff es RepoName
+getName cmdName merged = case merged.coreConfig.repo.name of
+  Just n -> pure n
+  Nothing ->
+    throwString
+      $ mconcat
+        [ cmdName,
+          ": Repository name must be specified by CLI ",
+          "args or Toml config."
+        ]
+
+-- OsString not OsPath since we want slashes preserved.
+mkHttps :: OsString -> OsString
+mkHttps domain = [osstr|https://|] <> domain <> [osstr|/|]
+
+mkSsh :: OsString -> OsString
+mkSsh domain = [osstr|git@|] <> domain <> [osstr|:|]
 
 makeFieldLabelsNoPrefix ''Env
