@@ -12,6 +12,7 @@ where
 
 import Control.Exception.Utils qualified as Ex.Utils
 import Data.Aeson qualified as Asn
+import Data.Functor (($>))
 import Data.List qualified as L
 import Data.Text qualified as T
 import Data.Time.Relative (Format (verbosity))
@@ -48,21 +49,17 @@ deleteCache ::
   ) =>
   DeleteCacheType ->
   Eff es ()
-deleteCache cacheType = do
+deleteCache cacheType =
   case cacheType of
     DeleteCacheGlobal (MkPath cacheDir) -> do
-      Logging.logDebug
-        $ "Deleting cache: "
-        <> decodeLenient cacheDir
+      Logging.logDebug $ "Deleting cache: " <> decodeLenient cacheDir
 
       PW.removePathForcibly cacheDir
     DeleteCacheLocal repoPath -> do
       let repoDir = repoPathToOsP repoPath
           repoDirStr = decodeLenient repoDir
 
-      Logging.logDebug
-        $ "Deleting cache repo: "
-        <> repoDirStr
+      Logging.logDebug $ "Deleting cache repo: " <> repoDirStr
 
       exists <- PR.doesDirectoryExist repoDir
       if exists
@@ -279,24 +276,16 @@ findBranches ::
 findBranches commit repoPath = do
   env <- ask @Env
 
-  Logging.logInfo
-    $ "Searching for hash "
-    ++ hashStr
-    ++ "..."
+  Logging.logInfo $ "Searching for hash " ++ hashStr ++ "..."
 
   commitExists <- doesCommitExist commit repoPath
 
   if not commitExists
-    then do
-      Logging.logInfo
-        "Commit does not exist."
-      pure []
+    then Logging.logInfo "Commit does not exist." $> []
     else do
       PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
         (timeStr, out) <- withTiming $ runGitOut (gitArgs env.coreConfig.repo.branches)
-        Logging.logInfo
-          $ "Search finished: "
-          ++ timeStr
+        Logging.logInfo $ "Search finished: " ++ timeStr
         toText <$> decodeThrowM out
   where
     gitArgs branches = case branches of
@@ -310,14 +299,7 @@ findBranches commit repoPath = do
         commit.unCommit
       ]
 
-    gitBranchArgs bs =
-      [ [osstr|branch|],
-        [osstr|-r|],
-        [osstr|--contains|],
-        commit.unCommit,
-        [osstr|--list|]
-      ]
-        ++ bs
+    gitBranchArgs bs = gitDefArgs ++ ([osstr|--list|] : bs)
 
     toText = fmap T.strip . T.lines . pack
 
@@ -354,7 +336,7 @@ runGitOut ::
   ) =>
   [OsString] ->
   Eff es OsString
-runGitOut args = runProcOut [osstr|git|] args
+runGitOut = runProcOut [osstr|git|]
 
 runGit ::
   ( HasCallStack,
@@ -364,7 +346,7 @@ runGit ::
   ) =>
   [OsString] ->
   Eff es (ExitCode, String, String)
-runGit args = runProc [osstr|git|] args
+runGit = runProc [osstr|git|]
 
 runGit_ ::
   ( HasCallStack,
