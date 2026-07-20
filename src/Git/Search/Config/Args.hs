@@ -274,7 +274,7 @@ nameParser =
           $ mconcat
             [ "Repository name. This should be the organization and repo ",
               "following github.com e.g. nixos/nixpkgs for ",
-              "github.com/nixos/nixpkgs. Mutually exclusive with --repo."
+              "github.com/nixos/nixpkgs."
             ]
       ]
   where
