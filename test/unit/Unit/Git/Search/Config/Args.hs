@@ -25,7 +25,7 @@ import Git.Search.Data
     Protocol (ProtocolHttps, ProtocolSsh),
   )
 import Git.Search.Logging.Data
-  ( LogLevel (LogLevelDebug, LogLevelInfo),
+  ( LogLevel (LogLevelDebug, LogLevelInfo, LogLevelWarn),
   )
 import System.Environment qualified as Env
 import Unit.Prelude
@@ -107,6 +107,7 @@ loggingTests =
       testLogColorOff,
       testLogLevelDebug,
       testLogLevelInfo,
+      testLogLevelWarn,
       testLogLevelOff
     ]
 
@@ -169,6 +170,21 @@ testLogLevelInfo = testProp1 desc "testLogLevelInfo" $ do
       ]
 
     e = set' (#coreConfig % #logLevel) (Just $ With LogLevelInfo) defArgs
+
+testLogLevelWarn :: TestTree
+testLogLevelWarn = testProp1 desc "testLogLevelWarn" $ do
+  testGetArgs e args
+  where
+    desc = "Parses --log-level warn"
+
+    args =
+      [ "--log-level",
+        "warn",
+        "search-commit",
+        commitStr
+      ]
+
+    e = set' (#coreConfig % #logLevel) (Just $ With LogLevelWarn) defArgs
 
 testLogLevelOff :: TestTree
 testLogLevelOff = testProp1 desc "testLogLevelOff" $ do

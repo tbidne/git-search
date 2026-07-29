@@ -10,6 +10,7 @@ import Git.Search.Prelude
 data LogLevel
   = LogLevelDebug
   | LogLevelInfo
+  | LogLevelWarn
   deriving stock (Eq, Ord, Show)
 
 instance DecodeTOML LogLevel where
@@ -17,6 +18,7 @@ instance DecodeTOML LogLevel where
     tomlDecoder @Text >>= \case
       "debug" -> pure LogLevelDebug
       "info" -> pure LogLevelInfo
+      "warn" -> pure LogLevelWarn
       other -> fail $ "Unrecognized log-level" ++ show other
 
 mkLevelLog :: Bool -> LogLevel -> String -> String
@@ -34,17 +36,22 @@ levelToHeader :: LogLevel -> String
 levelToHeader = \case
   LogLevelDebug -> "[Debug]: "
   LogLevelInfo -> "[Info]: "
+  LogLevelWarn -> "[Warn]: "
 
 levelToColor :: LogLevel -> String
 levelToColor = \case
   LogLevelDebug -> gray
   LogLevelInfo -> blue
+  LogLevelWarn -> yellow
 
 blue :: String
 blue = "\ESC[34m"
 
 green :: String
 green = "\ESC[32m"
+
+yellow :: String
+yellow = "\ESC[33m"
 
 gray :: String
 gray = "\ESC[90m"

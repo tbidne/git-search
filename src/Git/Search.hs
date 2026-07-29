@@ -129,7 +129,7 @@ prToCommit prNum repoName = do
         then
           Logging.logDebug $ "Pull request " ++ prStr ++ " is merged."
         else
-          Logging.logInfo $ "Pull request " ++ prStr ++ " is closed but unmerged."
+          Logging.logWarn $ "Pull request " ++ prStr ++ " is closed but unmerged."
 
   let commitStr = unpack pr.head.sha
 

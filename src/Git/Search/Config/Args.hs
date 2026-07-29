@@ -29,7 +29,13 @@ import Git.Search.Data
     RepoName (MkRepoName),
     RepoRemoteName (MkRepoRemoteName),
   )
-import Git.Search.Logging.Data (LogLevel (LogLevelDebug, LogLevelInfo))
+import Git.Search.Logging.Data
+  ( LogLevel
+      ( LogLevelDebug,
+        LogLevelInfo,
+        LogLevelWarn
+      ),
+  )
 import Git.Search.Prelude
 import Options.Applicative
   ( CommandFields,
@@ -191,8 +197,8 @@ logLevelParser =
       r
     $ mconcat
       [ OA.long "log-level",
-        OA.metavar "(debug | info | off)",
-        OA.completeWith ["debug", "info", "off"],
+        OA.metavar "(debug | info | warn | off)",
+        OA.completeWith ["debug", "info", "warn", "off"],
         mkHelpNoLine "Enables logging."
       ]
   where
@@ -201,6 +207,7 @@ logLevelParser =
       WD.disabledParser s $ case s of
         "debug" -> pure LogLevelDebug
         "info" -> pure LogLevelInfo
+        "warn" -> pure LogLevelWarn
         other -> fail $ "Unrecognized log-level: " ++ show other
 
 repoParser ::

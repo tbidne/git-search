@@ -30,7 +30,7 @@ branches = [
 # Enables logging colors. Can be 'on' or 'off', defaults to 'on'.
 log-color = 'on'
 
-# Enables logging. Can be 'debug' or 'info'.
+# Enables logging. Can be 'debug', 'info', or 'warn'.
 log-level = 'debug'
 
 # Miscellaneous options.
