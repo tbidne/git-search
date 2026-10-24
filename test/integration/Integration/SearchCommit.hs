@@ -6,6 +6,7 @@ import Git.Search.Config.Data
   ( Command (SearchCommit),
     Config (MkConfig, auth, clean, logColor, logLevel, repo),
     RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
+    SearchCommitParams (MkSearchCommitParams),
   )
 import Git.Search.Logging.Data (LogLevel (LogLevelDebug))
 import Integration.Prelude
@@ -55,10 +56,11 @@ testSearchCommitDefault = testProp1 desc "testSearchCommitDefault" $ do
     expectedCmd :: Command ConfigPhaseEnv
     expectedCmd =
       SearchCommit
-        ( unsafeCommit "abcdef0",
-          MkRepoPath repoCacheDir,
-          unsafeRemoteUri "https://github.com/org/repo"
-        )
+        $ MkSearchCommitParams
+          ( unsafeCommit "abcdef0",
+            MkRepoPath repoCacheDir,
+            unsafeRemoteUri "https://github.com/org/repo"
+          )
 
 testSearchCommitArgs :: TestTree
 testSearchCommitArgs = testProp1 desc "testSearchCommitArgs" $ do
@@ -115,10 +117,11 @@ testSearchCommitArgs = testProp1 desc "testSearchCommitArgs" $ do
     expectedCmd :: Command ConfigPhaseEnv
     expectedCmd =
       SearchCommit
-        ( unsafeCommit "abcdef0",
-          MkRepoPath $ root <</>> [reldirPathSep|local/path|],
-          unsafeRemoteUri "git@server.com:org/repo"
-        )
+        $ MkSearchCommitParams
+          ( unsafeCommit "abcdef0",
+            MkRepoPath $ root <</>> [reldirPathSep|local/path|],
+            unsafeRemoteUri "git@server.com:org/repo"
+          )
 
 testSearchCommitToml :: TestTree
 testSearchCommitToml = testProp1 desc "testSearchCommitToml" $ do
@@ -159,10 +162,11 @@ testSearchCommitToml = testProp1 desc "testSearchCommitToml" $ do
     expectedCmd :: Command ConfigPhaseEnv
     expectedCmd =
       SearchCommit
-        ( unsafeCommit "abcdef0",
-          MkRepoPath $ homeDir <</>> [reldirPathSep|local/path/|],
-          unsafeRemoteUri "git@server.com:org/repo"
-        )
+        $ MkSearchCommitParams
+          ( unsafeCommit "abcdef0",
+            MkRepoPath $ homeDir <</>> [reldirPathSep|local/path/|],
+            unsafeRemoteUri "git@server.com:org/repo"
+          )
 
 testSearchCommitArgsOverridesToml :: TestTree
 testSearchCommitArgsOverridesToml = testProp1 desc "testSearchCommitArgsOverridesToml" $ do
@@ -219,10 +223,11 @@ testSearchCommitArgsOverridesToml = testProp1 desc "testSearchCommitArgsOverride
     expectedCmd :: Command ConfigPhaseEnv
     expectedCmd =
       SearchCommit
-        ( unsafeCommit "abcdef0",
-          MkRepoPath repoCacheDir,
-          unsafeRemoteUri "https://github.com/org/repo"
-        )
+        $ MkSearchCommitParams
+          ( unsafeCommit "abcdef0",
+            MkRepoPath repoCacheDir,
+            unsafeRemoteUri "https://github.com/org/repo"
+          )
 
 testSearchCommitNameReq :: TestTree
 testSearchCommitNameReq = testProp1 desc "testSearchCommitNameReq" $ do

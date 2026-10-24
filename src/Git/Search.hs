@@ -27,6 +27,8 @@ import Git.Search.Config.Data
   ( Config (auth, clean, repo),
     DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
     RepoConfig (branches, remoteName),
+    SearchCommitParams (MkSearchCommitParams),
+    SearchPullRequestParams (MkSearchPullRequestParams),
   )
 import Git.Search.Data
   ( Commit (MkCommit, unCommit),
@@ -76,11 +78,13 @@ searchCommit ::
     Terminal :> es,
     Time :> es
   ) =>
-  (Commit, RepoPath, RepoRemoteUri) ->
+  SearchCommitParams ->
   Eff es [Text]
-searchCommit (commit, repoPath, repoSrc) = do
+searchCommit params = do
   cloneRepo repoPath repoSrc
   findBranches commit repoPath
+  where
+    MkSearchCommitParams (commit, repoPath, repoSrc) = params
 
 searchPullRequest ::
   ( HasCallStack,
@@ -92,11 +96,13 @@ searchPullRequest ::
     Terminal :> es,
     Time :> es
   ) =>
-  (Word32, RepoPath, RepoRemoteUri, RepoName) ->
+  SearchPullRequestParams ->
   Eff es [Text]
-searchPullRequest (prNum, repoPath, repoSrc, repoName) = do
+searchPullRequest params = do
   commit <- prToCommit prNum repoName
-  searchCommit (commit, repoPath, repoSrc)
+  searchCommit $ MkSearchCommitParams (commit, repoPath, repoSrc)
+  where
+    MkSearchPullRequestParams (prNum, repoPath, repoSrc, repoName) = params
 
 prToCommit ::
   ( HasCallStack,

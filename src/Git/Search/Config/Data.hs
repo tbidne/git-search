@@ -8,6 +8,8 @@ module Git.Search.Config.Data
 
     -- * Command
     Command (..),
+    SearchCommitParams (..),
+    SearchPullRequestParams (..),
     _DeleteCache,
     _SearchCommit,
     _SearchPullRequest,
@@ -168,12 +170,22 @@ type family DeleteCacheF p where
 type SearchCommitF :: ConfigPhase -> Type
 type family SearchCommitF p where
   SearchCommitF ConfigPhaseArgs = Commit
-  SearchCommitF ConfigPhaseEnv = (Commit, RepoPath, RepoRemoteUri)
+  SearchCommitF ConfigPhaseEnv = SearchCommitParams
+
+newtype SearchCommitParams = MkSearchCommitParams
+  { unSearchCommitParams :: (Commit, RepoPath, RepoRemoteUri)
+  }
+  deriving stock (Eq, Show)
 
 type SearchPullRequestF :: ConfigPhase -> Type
 type family SearchPullRequestF p where
   SearchPullRequestF ConfigPhaseArgs = Word32
-  SearchPullRequestF ConfigPhaseEnv = (Word32, RepoPath, RepoRemoteUri, RepoName)
+  SearchPullRequestF ConfigPhaseEnv = SearchPullRequestParams
+
+newtype SearchPullRequestParams = MkSearchPullRequestParams
+  { unSearchPullRequestParams :: (Word32, RepoPath, RepoRemoteUri, RepoName)
+  }
+  deriving stock (Eq, Show)
 
 -- | Command to run.
 type Command :: ConfigPhase -> Type
@@ -246,5 +258,7 @@ deriving stock instance
 
 makeFieldLabelsNoPrefix ''RepoConfig
 makeFieldLabelsNoPrefix ''Config
+makeFieldLabelsNoPrefix ''SearchCommitParams
+makeFieldLabelsNoPrefix ''SearchPullRequestParams
 makePrisms ''DeleteCacheType
 makePrisms ''Command

@@ -22,6 +22,8 @@ import Git.Search.Config.Data
     Config (MkConfig, auth, clean, logColor, logLevel, repo),
     DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
     RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
+    SearchCommitParams (MkSearchCommitParams),
+    SearchPullRequestParams (MkSearchPullRequestParams),
   )
 import Git.Search.Config.Merged (MergedConfig (coreConfig), mergeConfig)
 import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseEnv))
@@ -103,7 +105,7 @@ toEnv args mToml = do
 
       repoPath <- getRepoPath repoName merged.coreConfig.repo.path
 
-      pure $ SearchCommit (commit, repoPath, repoSrc)
+      pure $ SearchCommit $ MkSearchCommitParams (commit, repoPath, repoSrc)
 
     mkSearchPullRequest merged prNum = do
       repoName@(MkRepoName name) <- getName "search-pr" merged
@@ -127,7 +129,7 @@ toEnv args mToml = do
 
       repoPath <- getRepoPath repoName merged.coreConfig.repo.path
 
-      pure $ SearchPullRequest (prNum, repoPath, repoSrc, repoName)
+      pure $ SearchPullRequest $ MkSearchPullRequestParams (prNum, repoPath, repoSrc, repoName)
 
 -- | Returns the file-system path to use for the repository clone.
 -- If we are given an explicit path to use, use it. Otherwise, derived

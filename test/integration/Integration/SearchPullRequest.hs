@@ -6,6 +6,7 @@ import Git.Search.Config.Data
   ( Command (SearchPullRequest),
     Config (MkConfig, auth, clean, logColor, logLevel, repo),
     RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
+    SearchPullRequestParams (MkSearchPullRequestParams),
   )
 import Git.Search.Logging.Data (LogLevel (LogLevelDebug))
 import Integration.Prelude
@@ -57,11 +58,12 @@ testSearchPullRequestDefault = testProp1 desc "testSearchPullRequestDefault" $ d
     expectedCmd :: Command ConfigPhaseEnv
     expectedCmd =
       SearchPullRequest
-        ( 123,
-          MkRepoPath repoCacheDir,
-          unsafeRemoteUri "https://github.com/org/repo",
-          unsafeRepoName "org/repo"
-        )
+        $ MkSearchPullRequestParams
+          ( 123,
+            MkRepoPath repoCacheDir,
+            unsafeRemoteUri "https://github.com/org/repo",
+            unsafeRepoName "org/repo"
+          )
 
 testSearchPullRequestArgs :: TestTree
 testSearchPullRequestArgs = testProp1 desc "testSearchPullRequestArgs" $ do
@@ -114,11 +116,12 @@ testSearchPullRequestArgs = testProp1 desc "testSearchPullRequestArgs" $ do
     expectedCmd :: Command ConfigPhaseEnv
     expectedCmd =
       SearchPullRequest
-        ( 123,
-          MkRepoPath $ root <</>> [reldirPathSep|local/path/|],
-          unsafeRemoteUri "https://github.com/org/repo",
-          unsafeRepoName "org/repo"
-        )
+        $ MkSearchPullRequestParams
+          ( 123,
+            MkRepoPath $ root <</>> [reldirPathSep|local/path/|],
+            unsafeRemoteUri "https://github.com/org/repo",
+            unsafeRepoName "org/repo"
+          )
 
 testSearchPullRequestToml :: TestTree
 testSearchPullRequestToml = testProp1 desc "testSearchPullRequestToml" $ do
@@ -165,11 +168,12 @@ testSearchPullRequestToml = testProp1 desc "testSearchPullRequestToml" $ do
     expectedCmd :: Command ConfigPhaseEnv
     expectedCmd =
       SearchPullRequest
-        ( 123,
-          MkRepoPath $ homeDir <</>> [reldirPathSep|local/path/|],
-          unsafeRemoteUri "https://github.com/org/repo",
-          unsafeRepoName "org/repo"
-        )
+        $ MkSearchPullRequestParams
+          ( 123,
+            MkRepoPath $ homeDir <</>> [reldirPathSep|local/path/|],
+            unsafeRemoteUri "https://github.com/org/repo",
+            unsafeRepoName "org/repo"
+          )
 
 testSearchPullRequestArgsOverridesToml :: TestTree
 testSearchPullRequestArgsOverridesToml = testProp1 desc "testSearchPullRequestArgsOverridesToml" $ do
@@ -226,11 +230,12 @@ testSearchPullRequestArgsOverridesToml = testProp1 desc "testSearchPullRequestAr
     expectedCmd :: Command ConfigPhaseEnv
     expectedCmd =
       SearchPullRequest
-        ( 123,
-          MkRepoPath repoCacheDir,
-          unsafeRemoteUri "https://github.com/org/repo",
-          unsafeRepoName "org/repo"
-        )
+        $ MkSearchPullRequestParams
+          ( 123,
+            MkRepoPath repoCacheDir,
+            unsafeRemoteUri "https://github.com/org/repo",
+            unsafeRepoName "org/repo"
+          )
 
 testSearchPullRequestNameReq :: TestTree
 testSearchPullRequestNameReq = testProp1 desc "testSearchPullRequestNameReq" $ do
