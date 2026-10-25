@@ -18,7 +18,7 @@ import Effectful.FileSystem.PathWriter.Dynamic qualified as PW
 import FileSystem.Path qualified as FS.Path
 import Git.Search.Config.Args (Args (command))
 import Git.Search.Config.Data
-  ( Command (DeleteCache, SearchCommit, SearchDefaults, SearchPullRequest),
+  ( Command (DeleteCache, SearchCommit, SearchPullRequest),
     Config (MkConfig, auth, clean, logColor, logLevel, repo),
     DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
     RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
@@ -26,7 +26,7 @@ import Git.Search.Config.Data
     SearchPullRequestParams (MkSearchPullRequestParams),
   )
 import Git.Search.Config.Merged (MergedConfig (coreConfig), mergeConfig)
-import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseEnv))
+import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseArgs2, ConfigPhaseEnv))
 import Git.Search.Config.Toml (Toml)
 import Git.Search.Data
   ( Domain (unDomain),
@@ -46,7 +46,7 @@ toEnv ::
     PathReader :> es,
     PathWriter :> es
   ) =>
-  Args ->
+  Args ConfigPhaseArgs2 ->
   Maybe Toml ->
   Eff es (Env, Command ConfigPhaseEnv)
 toEnv args mToml = do
@@ -55,7 +55,6 @@ toEnv args mToml = do
   command <- case args.command of
     DeleteCache () -> mkDeleteCache merged
     SearchCommit commit -> mkSearchCommit merged commit
-    SearchDefaults () -> throwString "SearchDefaults incorrectly passed to toEnv"
     SearchPullRequest prNum -> mkSearchPullRequest merged prNum
 
   pure

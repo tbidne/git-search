@@ -18,13 +18,22 @@ module Git.Search.Config.Data
     DeleteCacheType (..),
     _DeleteCacheGlobal,
     _DeleteCacheLocal,
+
+    -- * Type Families
+    AuthF,
+    DeleteCacheF,
+    RepoF,
+    SearchCommitF,
+    SearchDefaultsF,
+    SearchPullRequestF,
   )
 where
 
 import Git.Search.Config.Phase
   ( ConfigF,
     ConfigPhase
-      ( ConfigPhaseArgs,
+      ( ConfigPhaseArgs1,
+        ConfigPhaseArgs2,
         ConfigPhaseEnv,
         ConfigPhaseMerged,
         ConfigPhaseToml,
@@ -48,7 +57,7 @@ import Git.Search.Prelude
 
 type BranchesF :: ConfigPhase -> Type
 type family BranchesF p where
-  BranchesF ConfigPhaseArgs = Maybe (WithDisabled [OsString])
+  BranchesF ConfigPhaseArgs1 = Maybe (WithDisabled [OsString])
   BranchesF ConfigPhaseToml = [OsString]
   BranchesF ConfigPhaseTomlRepoDefaults = ()
   BranchesF ConfigPhaseMerged = [OsString]
@@ -56,7 +65,7 @@ type family BranchesF p where
 
 type DomainF :: ConfigPhase -> Type
 type family DomainF p where
-  DomainF ConfigPhaseArgs = Maybe (WithDisabled Domain)
+  DomainF ConfigPhaseArgs1 = Maybe (WithDisabled Domain)
   DomainF ConfigPhaseToml = Maybe Domain
   DomainF ConfigPhaseTomlRepoDefaults = ()
   DomainF ConfigPhaseMerged = Domain
@@ -64,7 +73,7 @@ type family DomainF p where
 
 type NameF :: ConfigPhase -> Type -> Type
 type family NameF p a where
-  NameF ConfigPhaseArgs a = Maybe (WithDisabled a)
+  NameF ConfigPhaseArgs1 a = Maybe (WithDisabled a)
   NameF ConfigPhaseToml a = a
   NameF ConfigPhaseTomlRepoDefaults a = Maybe a
   NameF ConfigPhaseMerged a = Maybe a
@@ -72,7 +81,7 @@ type family NameF p a where
 
 type ProtocolF :: ConfigPhase -> Type
 type family ProtocolF p where
-  ProtocolF ConfigPhaseArgs = Maybe (WithDisabled Protocol)
+  ProtocolF ConfigPhaseArgs1 = Maybe (WithDisabled Protocol)
   ProtocolF ConfigPhaseToml = Maybe Protocol
   ProtocolF ConfigPhaseTomlRepoDefaults = ()
   ProtocolF ConfigPhaseMerged = Protocol
@@ -80,7 +89,7 @@ type family ProtocolF p where
 
 type PathF :: ConfigPhase -> Type
 type family PathF p where
-  PathF ConfigPhaseArgs = Maybe (WithDisabled OsPath)
+  PathF ConfigPhaseArgs1 = Maybe (WithDisabled OsPath)
   PathF ConfigPhaseToml = Maybe OsPath
   PathF ConfigPhaseTomlRepoDefaults = ()
   PathF ConfigPhaseMerged = Maybe OsPath
@@ -186,12 +195,14 @@ data DeleteCacheType
 
 type DeleteCacheF :: ConfigPhase -> Type
 type family DeleteCacheF p where
-  DeleteCacheF ConfigPhaseArgs = ()
+  DeleteCacheF ConfigPhaseArgs1 = ()
+  DeleteCacheF ConfigPhaseArgs2 = ()
   DeleteCacheF ConfigPhaseEnv = DeleteCacheType
 
 type SearchCommitF :: ConfigPhase -> Type
 type family SearchCommitF p where
-  SearchCommitF ConfigPhaseArgs = Commit
+  SearchCommitF ConfigPhaseArgs1 = Commit
+  SearchCommitF ConfigPhaseArgs2 = Commit
   SearchCommitF ConfigPhaseEnv = SearchCommitParams
 
 newtype SearchCommitParams = MkSearchCommitParams
@@ -201,12 +212,14 @@ newtype SearchCommitParams = MkSearchCommitParams
 
 type SearchDefaultsF :: ConfigPhase -> Type
 type family SearchDefaultsF p where
-  SearchDefaultsF ConfigPhaseArgs = ()
+  SearchDefaultsF ConfigPhaseArgs1 = ()
+  SearchDefaultsF ConfigPhaseArgs2 = Void
   SearchDefaultsF ConfigPhaseEnv = Void
 
 type SearchPullRequestF :: ConfigPhase -> Type
 type family SearchPullRequestF p where
-  SearchPullRequestF ConfigPhaseArgs = Word32
+  SearchPullRequestF ConfigPhaseArgs1 = Word32
+  SearchPullRequestF ConfigPhaseArgs2 = Word32
   SearchPullRequestF ConfigPhaseEnv = SearchPullRequestParams
 
 newtype SearchPullRequestParams = MkSearchPullRequestParams
@@ -244,14 +257,14 @@ deriving stock instance
 
 type AuthF :: ConfigPhase -> Type
 type family AuthF p where
-  AuthF ConfigPhaseArgs = Maybe OsString
+  AuthF ConfigPhaseArgs1 = Maybe OsString
   AuthF ConfigPhaseToml = ()
   AuthF ConfigPhaseMerged = Maybe OsString
   AuthF ConfigPhaseEnv = Maybe OsString
 
 type RepoF :: ConfigPhase -> Type
 type family RepoF p where
-  RepoF ConfigPhaseArgs = RepoConfig ConfigPhaseArgs
+  RepoF ConfigPhaseArgs1 = RepoConfig ConfigPhaseArgs1
   RepoF ConfigPhaseToml = Map RepoName (RepoConfig ConfigPhaseToml)
   RepoF ConfigPhaseMerged = RepoConfig ConfigPhaseMerged
   RepoF ConfigPhaseEnv = RepoConfig ConfigPhaseEnv

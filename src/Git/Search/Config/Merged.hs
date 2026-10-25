@@ -12,7 +12,7 @@ import Git.Search.Config.Data
   ( Config (MkConfig, auth, clean, logColor, logLevel, repo),
     RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
   )
-import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseMerged, ConfigPhaseToml))
+import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseArgs2, ConfigPhaseMerged, ConfigPhaseToml))
 import Git.Search.Config.Toml (Toml (coreConfig))
 import Git.Search.Config.WithDisabled (WithDisabled (Disabled, With))
 import Git.Search.Config.WithDisabled qualified as WD
@@ -26,7 +26,7 @@ import Git.Search.Prelude
 newtype MergedConfig = MkMergedConfig {coreConfig :: Config ConfigPhaseMerged}
 
 mergeConfig ::
-  Args ->
+  Args ConfigPhaseArgs2 ->
   Maybe Toml ->
   MergedConfig
 mergeConfig args mToml = case mToml of

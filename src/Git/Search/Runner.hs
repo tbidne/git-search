@@ -31,7 +31,7 @@ import Git.Search.Config.Data
         SearchPullRequest
       ),
   )
-import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseEnv))
+import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseArgs1, ConfigPhaseEnv))
 import Git.Search.Config.Toml (Toml)
 import Git.Search.Config.WithDisabled (WithDisabled (Disabled, With))
 import Git.Search.Logging qualified as Logging
@@ -136,8 +136,16 @@ getEnv = do
       searchDefaults = fromMaybe [] (mToml ^? (_Just % #searchDefaults))
 
   case cmd1 of
-    DeleteCache _ -> liftOne <$> Config.toEnv args mToml
-    SearchCommit _ -> liftOne <$> Config.toEnv args mToml
+    DeleteCache params ->
+      liftOne
+        <$> Config.toEnv
+          (set' #command (DeleteCache params) args)
+          mToml
+    SearchCommit params ->
+      liftOne
+        <$> Config.toEnv
+          (set' #command (SearchCommit params) args)
+          mToml
     SearchDefaults () -> do
       for searchDefaults $ \(eCmd, repoName, mDesc) -> do
         -- Create the actual command to run.
@@ -166,7 +174,11 @@ getEnv = do
         -- Create the env and final cmd, setting the repo name.
         (\(cmd, env) -> (cmd, env, Just (LogLevelCommand, msg)))
           <$> Config.toEnv (setCmd tmpCmd $ setName repoName args) mToml
-    SearchPullRequest _ -> liftOne <$> Config.toEnv args mToml
+    SearchPullRequest params ->
+      liftOne
+        <$> Config.toEnv
+          (set' #command (SearchPullRequest params) args)
+          mToml
   where
     setCmd = set' #command
     setName = set' (#coreConfig % #repo % #name) . (Just . With)
@@ -178,7 +190,7 @@ getToml ::
     FileReader :> es,
     PathReader :> es
   ) =>
-  Args ->
+  Args ConfigPhaseArgs1 ->
   Eff es (Maybe Toml)
 getToml args = do
   case args.config of

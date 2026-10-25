@@ -17,9 +17,13 @@ import Git.Search.Config.Args.TH qualified as TH
 import Git.Search.Config.Data
   ( Command (DeleteCache, SearchCommit, SearchDefaults, SearchPullRequest),
     Config (MkConfig, auth, clean, logColor, logLevel, repo),
+    DeleteCacheF,
     RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
+    SearchCommitF,
+    SearchDefaultsF,
+    SearchPullRequestF,
   )
-import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseArgs))
+import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseArgs1))
 import Git.Search.Config.WithDisabled (WithDisabled)
 import Git.Search.Config.WithDisabled qualified as WD
 import Git.Search.Data
@@ -65,14 +69,35 @@ import Options.Applicative.Types (ArgPolicy (Intersperse))
 import Paths_git_search qualified as Paths
 import System.Info qualified as Info
 
-data Args = MkArgs
-  { command :: Command ConfigPhaseArgs,
+data Args p = MkArgs
+  { -- | The type varies purely for the SearchDefaults command, where on the
+    -- CLI it is the trivial unit, and elsewhere it is Void.
+    command :: Command p,
     config :: Maybe (WithDisabled OsPath),
-    coreConfig :: Config ConfigPhaseArgs
+    -- NOTE: Intentionally do not use the type var 'p' here because:
+    --
+    -- 1. It is not needed (only the command type varies).
+    -- 2. We can only use 'p' once to have type-changing optics.
+    coreConfig :: Config ConfigPhaseArgs1
   }
-  deriving stock (Eq, Show)
 
-getArgs :: (Optparse :> es) => Eff es Args
+deriving stock instance
+  ( Eq (DeleteCacheF p),
+    Eq (SearchCommitF p),
+    Eq (SearchDefaultsF p),
+    Eq (SearchPullRequestF p)
+  ) =>
+  Eq (Args p)
+
+deriving stock instance
+  ( Show (DeleteCacheF p),
+    Show (SearchCommitF p),
+    Show (SearchDefaultsF p),
+    Show (SearchPullRequestF p)
+  ) =>
+  Show (Args p)
+
+getArgs :: (Optparse :> es) => Eff es (Args ConfigPhaseArgs1)
 getArgs = EOA.execParser parserInfoArgs
   where
     parserInfoArgs =
@@ -131,7 +156,7 @@ getArgs = EOA.execParser parserInfoArgs
             ]
         ]
 
-argsParser :: Parser Args
+argsParser :: Parser (Args ConfigPhaseArgs1)
 argsParser = do
   p
     <**> version
@@ -389,7 +414,7 @@ configParser =
       s <- OA.str
       WD.disabledParser s $ encodeValidFail (unpack s)
 
-commandParser :: Parser (Command ConfigPhaseArgs)
+commandParser :: Parser (Command ConfigPhaseArgs1)
 commandParser =
   OA.hsubparser
     ( mconcat

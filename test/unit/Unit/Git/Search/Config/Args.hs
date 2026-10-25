@@ -17,6 +17,7 @@ import Git.Search.Config.Data
         remoteName
       ),
   )
+import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseArgs1))
 import Git.Search.Config.WithDisabled
   ( WithDisabled (Disabled, With),
   )
@@ -565,19 +566,19 @@ testConfigOff = testProp1 desc "testConfigOff" $ do
 
     e = set' #config (Just Disabled) defArgs
 
-testGetArgs :: Args -> [String] -> PropertyT IO ()
+testGetArgs :: Args ConfigPhaseArgs1 -> [String] -> PropertyT IO ()
 testGetArgs expected args = do
   result <- liftIO $ runGetArgs args
   expected === result
 
-runGetArgs :: [String] -> IO Args
+runGetArgs :: [String] -> IO (Args ConfigPhaseArgs1)
 runGetArgs args =
   Env.withArgs args
     . runEff
     . runOptparse
     $ Args.getArgs
 
-defArgs :: Args
+defArgs :: Args ConfigPhaseArgs1
 defArgs =
   MkArgs
     { command = SearchCommit commit,
