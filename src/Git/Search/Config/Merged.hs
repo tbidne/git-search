@@ -29,108 +29,109 @@ mergeConfig ::
   Args ->
   Maybe Toml ->
   MergedConfig
-mergeConfig args Nothing =
-  let name = mergeMaybe args.coreConfig.repo.name Nothing
-   in MkMergedConfig
-        { coreConfig =
-            MkConfig
-              { auth = args.coreConfig.auth,
-                clean = mergeBoolFalse args.coreConfig.clean Nothing,
-                logColor = mergeBoolTrue args.coreConfig.logColor Nothing,
-                logLevel =
-                  mergeMaybe args.coreConfig.logLevel Nothing,
-                repo =
-                  MkRepoConfig
-                    { branches =
-                        mergeBranches
-                          args.coreConfig.repo.branches
-                          Map.empty
-                          name,
-                      domain =
-                        mergeWD
-                          defDomain
-                          (.domain)
-                          args.coreConfig.repo.domain
-                          Map.empty
-                          name,
-                      name,
-                      path =
-                        mergeWDMaybe
-                          (.path)
-                          args.coreConfig.repo.path
-                          Map.empty
-                          name,
-                      protocol =
-                        mergeWD
-                          defProtocol
-                          (.protocol)
-                          args.coreConfig.repo.protocol
-                          Map.empty
-                          name,
-                      remoteName =
-                        mergeWDMaybe
-                          (.remoteName)
-                          args.coreConfig.repo.remoteName
-                          Map.empty
-                          name
-                    }
-              }
-        }
-mergeConfig args (Just toml) =
-  let name = mergeMaybe args.coreConfig.repo.name Nothing
-   in MkMergedConfig
-        { coreConfig =
-            MkConfig
-              { auth = args.coreConfig.auth,
-                clean =
-                  mergeBoolFalse
-                    args.coreConfig.clean
-                    toml.coreConfig.clean,
-                logColor =
-                  mergeBoolTrue
-                    args.coreConfig.logColor
-                    toml.coreConfig.logColor,
-                logLevel =
-                  mergeMaybe
-                    args.coreConfig.logLevel
-                    toml.coreConfig.logLevel,
-                repo =
-                  MkRepoConfig
-                    { branches =
-                        mergeBranches
-                          args.coreConfig.repo.branches
-                          toml.coreConfig.repo
-                          name,
-                      domain =
-                        mergeWD
-                          defDomain
-                          (.domain)
-                          args.coreConfig.repo.domain
-                          toml.coreConfig.repo
-                          name,
-                      name,
-                      path =
-                        mergeWDMaybe
-                          (.path)
-                          args.coreConfig.repo.path
-                          toml.coreConfig.repo
-                          name,
-                      protocol =
-                        mergeWD
-                          defProtocol
-                          (.protocol)
-                          args.coreConfig.repo.protocol
-                          toml.coreConfig.repo
-                          name,
-                      remoteName =
-                        mergeWDMaybe
-                          (.remoteName)
-                          args.coreConfig.repo.remoteName
-                          toml.coreConfig.repo
-                          name
-                    }
-              }
-        }
+mergeConfig args = \case
+  Nothing ->
+    MkMergedConfig
+      { coreConfig =
+          MkConfig
+            { auth = args.coreConfig.auth,
+              clean = mergeBoolFalse args.coreConfig.clean Nothing,
+              logColor = mergeBoolTrue args.coreConfig.logColor Nothing,
+              logLevel =
+                mergeMaybe args.coreConfig.logLevel Nothing,
+              repo =
+                MkRepoConfig
+                  { branches =
+                      mergeBranches
+                        args.coreConfig.repo.branches
+                        Map.empty
+                        name,
+                    domain =
+                      mergeWD
+                        defDomain
+                        (.domain)
+                        args.coreConfig.repo.domain
+                        Map.empty
+                        name,
+                    name,
+                    path =
+                      mergeWDMaybe
+                        (.path)
+                        args.coreConfig.repo.path
+                        Map.empty
+                        name,
+                    protocol =
+                      mergeWD
+                        defProtocol
+                        (.protocol)
+                        args.coreConfig.repo.protocol
+                        Map.empty
+                        name,
+                    remoteName =
+                      mergeWDMaybe
+                        (.remoteName)
+                        args.coreConfig.repo.remoteName
+                        Map.empty
+                        name
+                  }
+            }
+      }
+  Just toml ->
+    MkMergedConfig
+      { coreConfig =
+          MkConfig
+            { auth = args.coreConfig.auth,
+              clean =
+                mergeBoolFalse
+                  args.coreConfig.clean
+                  toml.coreConfig.clean,
+              logColor =
+                mergeBoolTrue
+                  args.coreConfig.logColor
+                  toml.coreConfig.logColor,
+              logLevel =
+                mergeMaybe
+                  args.coreConfig.logLevel
+                  toml.coreConfig.logLevel,
+              repo =
+                MkRepoConfig
+                  { branches =
+                      mergeBranches
+                        args.coreConfig.repo.branches
+                        toml.coreConfig.repo
+                        name,
+                    domain =
+                      mergeWD
+                        defDomain
+                        (.domain)
+                        args.coreConfig.repo.domain
+                        toml.coreConfig.repo
+                        name,
+                    name,
+                    path =
+                      mergeWDMaybe
+                        (.path)
+                        args.coreConfig.repo.path
+                        toml.coreConfig.repo
+                        name,
+                    protocol =
+                      mergeWD
+                        defProtocol
+                        (.protocol)
+                        args.coreConfig.repo.protocol
+                        toml.coreConfig.repo
+                        name,
+                    remoteName =
+                      mergeWDMaybe
+                        (.remoteName)
+                        args.coreConfig.repo.remoteName
+                        toml.coreConfig.repo
+                        name
+                  }
+            }
+      }
+  where
+    name = mergeMaybe args.coreConfig.repo.name Nothing
 
 mergeBoolFalse :: Maybe Bool -> Maybe Bool -> Bool
 mergeBoolFalse (Just b) _ = b
