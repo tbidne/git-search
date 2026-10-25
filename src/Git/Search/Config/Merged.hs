@@ -29,7 +29,7 @@ mergeConfig ::
   Args ->
   Maybe Toml ->
   MergedConfig
-mergeConfig args = \case
+mergeConfig args mToml = case mToml of
   Nothing ->
     MkMergedConfig
       { coreConfig =
@@ -131,7 +131,10 @@ mergeConfig args = \case
             }
       }
   where
-    name = mergeMaybe args.coreConfig.repo.name Nothing
+    name =
+      mergeMaybe
+        args.coreConfig.repo.name
+        (mToml ^? _Just % #repoDefaults % #name % _Just)
 
 mergeBoolFalse :: Maybe Bool -> Maybe Bool -> Bool
 mergeBoolFalse (Just b) _ = b

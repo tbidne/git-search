@@ -1,17 +1,31 @@
 # All keys are overridden by CLI args and optional, unless otherwise
 # stated.
 
-# Values for the 'search-deaults' command. Will run these searches sequentially
-# i.e.
+# Default values. If the field is not given anywhere else (e.g. CLI, toml),
+# then this value is used.
+[repo-defaults]
+# The repo name used if CLI --name is not given.
+name = 'my/repo'
+
+# Values for the 'search-defaults' command. Will run these searches sequentially
+# e.g.
 #
 #   git-search --name nixos/nixpkgs search-commit c190319
 #   git-search --name nixos/nixpkgs search-pr 510883
-#
-# The name key is optional. If it is not given, we will use the CLI --name.
-search-defaults = [
-  { cmd = 'commit', arg = 'c190319', name = 'nixos/nixpkgs', desc = 'some commit' },
-  { cmd = 'pr', arg = 510883, name = 'nixos/nixpkgs' }
-]
+[[search-defaults]]
+# Mandatory 'commit' or 'pr'.
+cmd = 'commit'
+# Mandatory String commit or int pr.
+arg = 'c190319'
+# Mandatory repo name
+name = 'nixos/nixpkgs'
+# Optional description, used in logs.
+desc = 'some commit'
+
+[[search-defaults]]
+cmd = 'pr'
+arg = 510883
+name = 'nixos/nixpkgs'
 
 # Repo map is a map from a repo name to various args. If the given --name
 # matches an entry here, its values will be used, unless overridden by

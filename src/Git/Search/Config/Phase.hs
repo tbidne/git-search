@@ -14,6 +14,7 @@ import Git.Search.Prelude
 data ConfigPhase
   = ConfigPhaseArgs
   | ConfigPhaseToml
+  | ConfigPhaseTomlRepoDefaults
   | ConfigPhaseMerged
   | ConfigPhaseEnv
 
@@ -28,5 +29,6 @@ type ConfigWdMaybeF :: ConfigPhase -> Type -> Type
 type family ConfigWdMaybeF p a where
   ConfigWdMaybeF ConfigPhaseArgs a = Maybe (WithDisabled a)
   ConfigWdMaybeF ConfigPhaseToml a = Maybe a
+  ConfigWdMaybeF ConfigPhaseTomlRepoDefaults _ = ()
   ConfigWdMaybeF ConfigPhaseMerged a = Maybe a
   ConfigWdMaybeF ConfigPhaseEnv a = Maybe a

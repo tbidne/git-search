@@ -139,7 +139,7 @@ getEnv = do
     DeleteCache _ -> liftOne <$> Config.toEnv args mToml
     SearchCommit _ -> liftOne <$> Config.toEnv args mToml
     SearchDefaults () -> do
-      for searchDefaults $ \(eCmd, mName, mDesc) -> do
+      for searchDefaults $ \(eCmd, repoName, mDesc) -> do
         -- Create the actual command to run.
         let desc = unpack $ maybe "" (": " <>) mDesc
             (tmpCmd, msg) = case eCmd of
@@ -163,11 +163,9 @@ getEnv = do
                         ]
                  in (SearchPullRequest pr, logMsg)
 
-        -- Create the env and final cmd, setting the repo name if necessary.
+        -- Create the env and final cmd, setting the repo name.
         (\(cmd, env) -> (cmd, env, Just (LogLevelCommand, msg)))
-          <$> case mName of
-            Nothing -> Config.toEnv (setCmd tmpCmd args) mToml
-            Just name -> Config.toEnv (setCmd tmpCmd $ setName name args) mToml
+          <$> Config.toEnv (setCmd tmpCmd $ setName repoName args) mToml
     SearchPullRequest _ -> liftOne <$> Config.toEnv args mToml
   where
     setCmd = set' #command

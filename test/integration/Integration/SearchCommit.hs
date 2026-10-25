@@ -18,6 +18,7 @@ tests =
     [ testSearchCommitDefault,
       testSearchCommitArgs,
       testSearchCommitToml,
+      testSearchCommitTomlRepoDefaults,
       testSearchCommitArgsOverridesToml,
       testSearchCommitNameReq
     ]
@@ -166,6 +167,49 @@ testSearchCommitToml = testProp1 desc "testSearchCommitToml" $ do
           ( unsafeCommit "abcdef0",
             MkRepoPath $ homeDir <</>> [reldirPathSep|local/path/|],
             unsafeRemoteUri "git@server.com:org/repo"
+          )
+
+testSearchCommitTomlRepoDefaults :: TestTree
+testSearchCommitTomlRepoDefaults = testProp1 desc "testSearchCommitTomlRepoDefaults" $ do
+  (env, cmd) <- liftIO $ runEnvConfig args
+
+  expectedEnv === env
+  expectedCmd === cmd
+  where
+    desc = "Toml config with repo defaults"
+
+    args =
+      [ "search-commit",
+        "abcdef0"
+      ]
+
+    expectedEnv =
+      MkEnv
+        { coreConfig =
+            MkConfig
+              { auth = Nothing,
+                clean = True,
+                logColor = False,
+                logLevel = Just LogLevelDebug,
+                repo =
+                  MkRepoConfig
+                    { branches = [],
+                      domain = (),
+                      name = (),
+                      path = (),
+                      protocol = (),
+                      remoteName = Nothing
+                    }
+              }
+        }
+
+    expectedCmd :: Command ConfigPhaseEnv
+    expectedCmd =
+      SearchCommit
+        $ MkSearchCommitParams
+          ( unsafeCommit "abcdef0",
+            MkRepoPath $ root <</>> [reldirPathSep|.cache/git-search/my/repo/|],
+            unsafeRemoteUri "https://github.com/my/repo"
           )
 
 testSearchCommitArgsOverridesToml :: TestTree

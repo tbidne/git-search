@@ -27,7 +27,8 @@ import Git.Search.Config.Phase
       ( ConfigPhaseArgs,
         ConfigPhaseEnv,
         ConfigPhaseMerged,
-        ConfigPhaseToml
+        ConfigPhaseToml,
+        ConfigPhaseTomlRepoDefaults
       ),
     ConfigWdMaybeF,
   )
@@ -49,6 +50,7 @@ type BranchesF :: ConfigPhase -> Type
 type family BranchesF p where
   BranchesF ConfigPhaseArgs = Maybe (WithDisabled [OsString])
   BranchesF ConfigPhaseToml = [OsString]
+  BranchesF ConfigPhaseTomlRepoDefaults = ()
   BranchesF ConfigPhaseMerged = [OsString]
   BranchesF ConfigPhaseEnv = [OsString]
 
@@ -56,6 +58,7 @@ type DomainF :: ConfigPhase -> Type
 type family DomainF p where
   DomainF ConfigPhaseArgs = Maybe (WithDisabled Domain)
   DomainF ConfigPhaseToml = Maybe Domain
+  DomainF ConfigPhaseTomlRepoDefaults = ()
   DomainF ConfigPhaseMerged = Domain
   DomainF ConfigPhaseEnv = ()
 
@@ -63,6 +66,7 @@ type NameF :: ConfigPhase -> Type -> Type
 type family NameF p a where
   NameF ConfigPhaseArgs a = Maybe (WithDisabled a)
   NameF ConfigPhaseToml a = a
+  NameF ConfigPhaseTomlRepoDefaults a = Maybe a
   NameF ConfigPhaseMerged a = Maybe a
   NameF ConfigPhaseEnv _ = ()
 
@@ -70,6 +74,7 @@ type ProtocolF :: ConfigPhase -> Type
 type family ProtocolF p where
   ProtocolF ConfigPhaseArgs = Maybe (WithDisabled Protocol)
   ProtocolF ConfigPhaseToml = Maybe Protocol
+  ProtocolF ConfigPhaseTomlRepoDefaults = ()
   ProtocolF ConfigPhaseMerged = Protocol
   ProtocolF ConfigPhaseEnv = ()
 
@@ -77,6 +82,7 @@ type PathF :: ConfigPhase -> Type
 type family PathF p where
   PathF ConfigPhaseArgs = Maybe (WithDisabled OsPath)
   PathF ConfigPhaseToml = Maybe OsPath
+  PathF ConfigPhaseTomlRepoDefaults = ()
   PathF ConfigPhaseMerged = Maybe OsPath
   PathF ConfigPhaseEnv = ()
 
@@ -118,6 +124,22 @@ deriving stock instance
     Show (ConfigWdMaybeF p RepoRemoteName)
   ) =>
   Show (RepoConfig p)
+
+instance DecodeTOML (RepoConfig ConfigPhaseTomlRepoDefaults) where
+  tomlDecoder = do
+    name <- nameDecoder
+
+    pure
+      $ MkRepoConfig
+        { branches = (),
+          domain = (),
+          name,
+          path = (),
+          protocol = (),
+          remoteName = ()
+        }
+    where
+      nameDecoder = getFieldWith tomlDecoder "name"
 
 instance DecodeTOML (RepoConfig ConfigPhaseToml) where
   tomlDecoder = do

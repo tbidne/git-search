@@ -9,16 +9,22 @@ where
 import Data.Map.Strict qualified as Map
 import Git.Search.Config.Data
   ( Config (MkConfig, auth, clean, logColor, logLevel, repo),
-    RepoConfig (name),
+    RepoConfig (MkRepoConfig, name),
   )
-import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseToml))
+import Git.Search.Config.Phase
+  ( ConfigPhase
+      ( ConfigPhaseToml,
+        ConfigPhaseTomlRepoDefaults
+      ),
+  )
 import Git.Search.Data (Commit, RepoName)
 import Git.Search.Prelude
 import TOML (Decoder, getArrayOf)
 
 data Toml = MkToml
   { coreConfig :: Config ConfigPhaseToml,
-    searchDefaults :: [(Either Commit Word32, Maybe RepoName, Maybe Text)]
+    repoDefaults :: RepoConfig ConfigPhaseTomlRepoDefaults,
+    searchDefaults :: [(Either Commit Word32, RepoName, Maybe Text)]
   }
 
 instance DecodeTOML Toml where
@@ -26,6 +32,7 @@ instance DecodeTOML Toml where
     (logColor, logLevel) <- decodeLogging
     repo <- decodeRepoMap
     clean <- decodeMisc
+    repoDefaults <- decodeRepoDefaults
     searchDefaults <- decodeSearchDefaults
 
     pure
@@ -38,6 +45,7 @@ instance DecodeTOML Toml where
                 logLevel,
                 repo
               },
+          repoDefaults,
           searchDefaults
         }
     where
@@ -59,13 +67,18 @@ instance DecodeTOML Toml where
         assocVals <- fmap (\r -> (r.name, r)) <$> tomlDecoder
         pure $ Map.fromList assocVals
 
-      decodeSearchDefaults :: Decoder [(Either Commit Word32, Maybe RepoName, Maybe Text)]
+      decodeRepoDefaults :: Decoder (RepoConfig ConfigPhaseTomlRepoDefaults)
+      decodeRepoDefaults = do
+        fromMaybe (MkRepoConfig () () Nothing () () ())
+          <$> getFieldOptWith tomlDecoder "repo-defaults"
+
+      decodeSearchDefaults :: Decoder [(Either Commit Word32, RepoName, Maybe Text)]
       decodeSearchDefaults =
         fmap (fromMaybe [])
           . flip getFieldOptWith "search-defaults"
           $ getArrayOf decodeSearchDefault
 
-      decodeSearchDefault :: Decoder (Either Commit Word32, Maybe RepoName, Maybe Text)
+      decodeSearchDefault :: Decoder (Either Commit Word32, RepoName, Maybe Text)
       decodeSearchDefault = do
         cmdArg <-
           getFieldWith @Text tomlDecoder "cmd" >>= \case
@@ -73,10 +86,10 @@ instance DecodeTOML Toml where
             "pr" -> Right <$> decodeSearchDefaultArg
             other -> fail $ "Unrecognized command: " ++ unpack other
 
-        mRepoName <- getFieldOptWith tomlDecoder "name"
+        repoName <- getFieldWith tomlDecoder "name"
         mDesc <- getFieldOptWith tomlDecoder "desc"
 
-        pure (cmdArg, mRepoName, mDesc)
+        pure (cmdArg, repoName, mDesc)
 
       decodeSearchDefaultArg :: (DecodeTOML a) => Decoder a
       decodeSearchDefaultArg = getFieldWith tomlDecoder "arg"
