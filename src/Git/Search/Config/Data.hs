@@ -177,6 +177,11 @@ newtype SearchCommitParams = MkSearchCommitParams
   }
   deriving stock (Eq, Show)
 
+type SearchDefaultsF :: ConfigPhase -> Type
+type family SearchDefaultsF p where
+  SearchDefaultsF ConfigPhaseArgs = ()
+  SearchDefaultsF ConfigPhaseEnv = Void
+
 type SearchPullRequestF :: ConfigPhase -> Type
 type family SearchPullRequestF p where
   SearchPullRequestF ConfigPhaseArgs = Word32
@@ -194,12 +199,15 @@ data Command p
     DeleteCache (DeleteCacheF p)
   | -- | Searches for the commit.
     SearchCommit (SearchCommitF p)
+  | -- | Runs default searches.
+    SearchDefaults (SearchDefaultsF p)
   | -- | Searches for the pull request.
     SearchPullRequest (SearchPullRequestF p)
 
 deriving stock instance
   ( Eq (DeleteCacheF p),
     Eq (SearchCommitF p),
+    Eq (SearchDefaultsF p),
     Eq (SearchPullRequestF p)
   ) =>
   Eq (Command p)
@@ -207,6 +215,7 @@ deriving stock instance
 deriving stock instance
   ( Show (DeleteCacheF p),
     Show (SearchCommitF p),
+    Show (SearchDefaultsF p),
     Show (SearchPullRequestF p)
   ) =>
   Show (Command p)

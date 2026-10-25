@@ -10,7 +10,9 @@ module Integration.Prelude
     -- * Env runners
     runEnv,
     runEnvNoConfig,
+    runEnvNoConfigMany,
     runEnvConfig,
+    runEnvConfigMany,
 
     -- * Assertions
     assertExStr,
@@ -75,21 +77,37 @@ testProp1 testName propName =
     . withTests 1
     . property
 
-runEnvNoConfig :: [String] -> IO (Env, Command ConfigPhaseEnv)
-runEnvNoConfig = runEnv . (\as -> "--config" : "off" : as)
+runEnvNoConfigMany :: [String] -> IO [(Env, Command ConfigPhaseEnv)]
+runEnvNoConfigMany = runEnv . (\as -> "--config" : "off" : as)
 
-runEnvConfig :: [String] -> IO (Env, Command ConfigPhaseEnv)
-runEnvConfig = runEnv . (\as -> "--config" : cfg : as)
+runEnvNoConfig :: [String] -> IO (Env, Command ConfigPhaseEnv)
+runEnvNoConfig = runEnvNoConfigMany >=> oneOrDie
+
+runEnvConfigMany :: [String] -> IO [(Env, Command ConfigPhaseEnv)]
+runEnvConfigMany = runEnv . (\as -> "--config" : cfg : as)
   where
     cfg = unsafeDecode [ospPathSep|test/integration/config.toml|]
+
+runEnvConfig :: [String] -> IO (Env, Command ConfigPhaseEnv)
+runEnvConfig = runEnvConfigMany >=> oneOrDie
+
+oneOrDie :: (Show a) => [a] -> IO a
+oneOrDie [x] = pure x
+oneOrDie [] = throwString "Expected one element, received none"
+oneOrDie xs@(_ : _ : _) = throwString $ "Expected one element, received > 1: " ++ show xs
 
 -- NOTE: withArgs is not thread-safe, hence our cabal suite cannot have:
 --
 --   ghc-options:    -threaded -with-rtsopts=-N
 --
 -- Alternatively, we could use tasty to run sequentially.
-runEnv :: [String] -> IO (Env, Command ConfigPhaseEnv)
-runEnv args = Env.withArgs args $ runner Runner.getEnv
+runEnv :: [String] -> IO [(Env, Command ConfigPhaseEnv)]
+runEnv args =
+  (fmap . fmap)
+    (\(env, cmd, _) -> (env, cmd))
+    . Env.withArgs args
+    . runner
+    $ Runner.getEnv
   where
     runner =
       runEff

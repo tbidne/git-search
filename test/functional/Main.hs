@@ -5,6 +5,7 @@ module Main (main) where
 import Data.IORef (IORef)
 import Data.IORef qualified as IORef
 import Data.List qualified as L
+import Data.Map.Strict qualified as Map
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text qualified as T
@@ -18,7 +19,7 @@ import System.Environment qualified as Env
 import System.IO qualified as IO
 import Test.Tasty (DependencyType (AllSucceed), TestTree, dependentTestGroup)
 import Test.Tasty qualified as Tasty
-import Test.Tasty.HUnit (assertBool, testCase, (@=?))
+import Test.Tasty.HUnit (assertBool, assertEqual, testCase, (@=?))
 
 main :: IO ()
 main = do
@@ -48,6 +49,7 @@ main = do
     mainTests ref mAuth =
       [ testNixpkgsCommitFetch ref,
         testNixpkgsCommitBranches,
+        testNixpkgsDefaults mAuth,
         testNixpkgsPullRequest mAuth
       ]
 
@@ -102,6 +104,38 @@ testNixpkgsCommitBranches = testCase desc $ do
         "- origin/nixos-unstable-small",
         "- origin/nixpkgs-unstable"
       ]
+
+testNixpkgsDefaults :: Maybe String -> TestTree
+testNixpkgsDefaults mAuth = testCase desc $ do
+  results <- mkResultsMap <$> runSearch args
+  assertResultsN expected results
+  where
+    desc = "Searches defaults in nixos/nixpkgs"
+
+    args = case mAuth of
+      Nothing -> baseArgs
+      Just auth -> "--auth" : auth : baseArgs
+
+    baseArgs =
+      mkArgsCmd
+        [ "--branches",
+          branches,
+          "search-defaults"
+        ]
+        [osp|./examples/config.toml|]
+
+    expected =
+      [ -- Both results
+        ("- origin/haskell-updates", 2),
+        ("- origin/master", 2),
+        ("- origin/nixos-unstable", 2),
+        ("- origin/nixos-unstable-small", 2),
+        ("- origin/nixpkgs-unstable", 2),
+        -- PR results
+        ("- origin/nixpkgs-26.05-darwin", 1)
+      ]
+
+    branches = "*master *unstable* *haskell* *darwin"
 
 testNixpkgsPullRequest :: Maybe String -> TestTree
 testNixpkgsPullRequest mAuth = testCase desc $ do
@@ -176,6 +210,32 @@ assertResults expected rs = for_ expected $ \e -> do
               $ Set.toList rs
           ]
   assertBool err isMember
+
+assertResultsN :: [(Text, Int)] -> Map Text Int -> IO ()
+assertResultsN expected rs = for_ expected $ \(eTxt, eN) -> do
+  let actualN = Map.findWithDefault 0 eTxt rs
+      err =
+        mconcat
+          [ "Expected branch '",
+            unpack eTxt,
+            "' ",
+            show eN,
+            " times in results:",
+            unpack
+              . mconcat
+              . fmap (("\n" <>) . (\(t, n) -> t <> ": " <> pack (show n)))
+              $ Map.toList rs
+          ]
+  assertEqual err eN actualN
+
+mkResultsMap :: [Text] -> Map Text Int
+mkResultsMap = L.foldl' go Map.empty
+  where
+    go mp t = Map.alter k t mp
+
+    k = \case
+      Nothing -> Just 1
+      Just n -> let !n' = n + 1 in Just n'
 
 runSearch :: [String] -> IO [Text]
 runSearch args = do

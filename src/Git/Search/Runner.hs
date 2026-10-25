@@ -10,6 +10,7 @@ module Git.Search.Runner
 where
 
 import Control.Exception.Utils qualified as Ex.Utils
+import Data.Tuple (uncurry)
 import Effectful.Concurrent qualified as CC
 import Effectful.Concurrent.Async qualified as Async
 import Effectful.Exception qualified as Ex
@@ -26,6 +27,7 @@ import Git.Search.Config.Data
   ( Command
       ( DeleteCache,
         SearchCommit,
+        SearchDefaults,
         SearchPullRequest
       ),
   )
@@ -33,6 +35,7 @@ import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseEnv))
 import Git.Search.Config.Toml (Toml)
 import Git.Search.Config.WithDisabled (WithDisabled (Disabled, With))
 import Git.Search.Logging qualified as Logging
+import Git.Search.Logging.Data (LogLevel (LogLevelCommand))
 import Git.Search.Prelude
 import System.IO qualified as IO
 import TOML qualified
@@ -53,20 +56,23 @@ runSearch ::
   ) =>
   Eff es ()
 runSearch = withHiddenInput $ do
-  (env, cmd) <- getEnv
+  envCmds <- getEnv
 
-  runReader env $ do
-    let cmdAction = case cmd of
-          DeleteCache cmdArgs -> Git.Search.deleteCache cmdArgs
-          SearchCommit cmdArgs ->
-            Git.Search.searchCommit cmdArgs >>= printBranches
-          SearchPullRequest cmdArgs ->
-            Git.Search.searchPullRequest cmdArgs >>= printBranches
+  let cmdAction =
+        for_ envCmds $ \(env, cmd, mLog) -> do
+          runReader env $ do
+            for_ mLog (uncurry Logging.logWithLevel)
+            runCmd cmd
 
-    Async.race_ cmdAction drainStdinLoop
+  Async.race_ cmdAction drainStdinLoop
   where
+    runCmd = \case
+      DeleteCache cmdArgs -> Git.Search.deleteCache cmdArgs
+      SearchCommit cmdArgs -> Git.Search.searchCommit cmdArgs >>= printBranches
+      SearchPullRequest cmdArgs -> Git.Search.searchPullRequest cmdArgs >>= printBranches
+
     printBranches branches = case branches of
-      [] -> Logging.logSuccess "No branches found."
+      [] -> Logging.logSuccess "No branches found.\n"
       bs@(_ : _) -> do
         let numBranches = length bs
             formatted = mconcat $ fmap ("\n - " <>) bs
@@ -80,7 +86,8 @@ runSearch = withHiddenInput $ do
             [ "Found ",
               show numBranches,
               suffix,
-              unpack formatted
+              unpack formatted,
+              "\n"
             ]
 
 getEnv ::
@@ -90,12 +97,83 @@ getEnv ::
     PathReader :> es,
     PathWriter :> es
   ) =>
-  Eff es (Env, Command ConfigPhaseEnv)
+  Eff es [(Env, Command ConfigPhaseEnv, Maybe (LogLevel, String))]
 getEnv = do
   args <- Git.Search.Config.Args.getArgs
   mToml <- getToml args
 
-  Config.toEnv args mToml
+  -- NOTE: [Env and Cmd creation]
+  --
+  -- To accommodate SearchDefaults, we create the final cmd and env in multiple
+  -- stages.
+  --
+  -- That is, the Args and Toml are both required to create the runtime Env
+  -- and final command that is run. Furthermore, Args needs its repoName
+  -- field set in order for the Env to be correctly set.
+  --
+  -- This is a problem for the SearchDefaults command. That is, SearchDefaults
+  -- runs a series of SearchCommit and SearchPullRequest commands, based on
+  -- the toml field. Note that each command can set its own repoName.
+  --
+  -- But this means if we have already created the Env from the original Args
+  -- and Toml, it will not be correctly set for each command, since each
+  -- command may have a different repoName from Args.
+  --
+  -- Therefore, we first pattern match on the args' command. For normal
+  -- commands, create the Env and final Cmd as usual and run them.
+  --
+  -- For SearchDefaults, we run each command from the toml sequentially. If
+  -- the command has its repo name set, we set it on Args. We then create
+  -- the Env and final Command, and run it. This way the Env is correct.
+  --
+  -- This does mean we pattern match on the command several times:
+  --
+  --   - 1: Determine how to construct env / final cmd.
+  --   - 2: In Config.toEnv, to actually construct env / final cmd (could be
+  --        consolidated to remove redundancy).
+  --   - 3: Final time here, when running the actual command.
+  let cmd1 = args ^. #command
+      searchDefaults = fromMaybe [] (mToml ^? (_Just % #searchDefaults))
+
+  case cmd1 of
+    DeleteCache _ -> liftOne <$> Config.toEnv args mToml
+    SearchCommit _ -> liftOne <$> Config.toEnv args mToml
+    SearchDefaults () -> do
+      for searchDefaults $ \(eCmd, mName, mDesc) -> do
+        -- Create the actual command to run.
+        let desc = unpack $ maybe "" (": " <>) mDesc
+            (tmpCmd, msg) = case eCmd of
+              Left commit ->
+                let commitStr = decodeLenient $ commit ^. #unCommit
+                    logMsg =
+                      mconcat
+                        [ "Running search-commit (",
+                          commitStr,
+                          ")",
+                          desc
+                        ]
+                 in (SearchCommit commit, logMsg)
+              Right pr ->
+                let logMsg =
+                      mconcat
+                        [ "Running search-pr (",
+                          show pr,
+                          ")",
+                          desc
+                        ]
+                 in (SearchPullRequest pr, logMsg)
+
+        -- Create the env and final cmd, setting the repo name if necessary.
+        (\(cmd, env) -> (cmd, env, Just (LogLevelCommand, msg)))
+          <$> case mName of
+            Nothing -> Config.toEnv (setCmd tmpCmd args) mToml
+            Just name -> Config.toEnv (setCmd tmpCmd $ setName name args) mToml
+    SearchPullRequest _ -> liftOne <$> Config.toEnv args mToml
+  where
+    setCmd = set' #command
+    setName = set' (#coreConfig % #repo % #name) . (Just . With)
+
+    liftOne (env, cmd) = [(env, cmd, Nothing)]
 
 getToml ::
   ( HasCallStack,

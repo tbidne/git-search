@@ -66,6 +66,7 @@ import Data.Text as X (Text, pack, unpack)
 import Data.Text.Encoding.Error as X (UnicodeException)
 import Data.Traversable as X (Traversable, for, traverse)
 import Data.Tuple as X (fst, snd)
+import Data.Void as X (Void, absurd)
 import Data.Word as X (Word32)
 import Effectful as X (Eff, IOE, runEff, type (:>))
 import Effectful.Concurrent as X (Concurrent, runConcurrent)
@@ -160,7 +161,10 @@ import Optics.Core as X
     set',
     view,
     (%),
+    (%?),
     (^.),
+    (^?),
+    _Just,
   )
 import Optics.TH as X (makeFieldLabelsNoPrefix, makePrisms)
 import System.Exit as X (ExitCode (ExitFailure, ExitSuccess))

@@ -15,7 +15,7 @@ import Effectful.Optparse.Completer qualified as EOC
 import Effectful.Optparse.Static qualified as EOA
 import Git.Search.Config.Args.TH qualified as TH
 import Git.Search.Config.Data
-  ( Command (DeleteCache, SearchCommit, SearchPullRequest),
+  ( Command (DeleteCache, SearchCommit, SearchDefaults, SearchPullRequest),
     Config (MkConfig, auth, clean, logColor, logLevel, repo),
     RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
   )
@@ -31,7 +31,8 @@ import Git.Search.Data
   )
 import Git.Search.Logging.Data
   ( LogLevel
-      ( LogLevelDebug,
+      ( LogLevelCommand,
+        LogLevelDebug,
         LogLevelInfo,
         LogLevelWarn
       ),
@@ -197,8 +198,8 @@ logLevelParser =
       r
     $ mconcat
       [ OA.long "log-level",
-        OA.metavar "(debug | info | warn | off)",
-        OA.completeWith ["debug", "info", "warn", "off"],
+        OA.metavar "(debug | info | command | warn | off)",
+        OA.completeWith ["debug", "info", "command", "warn", "off"],
         mkHelpNoLine "Enables logging."
       ]
   where
@@ -207,6 +208,7 @@ logLevelParser =
       WD.disabledParser s $ case s of
         "debug" -> pure LogLevelDebug
         "info" -> pure LogLevelInfo
+        "command" -> pure LogLevelCommand
         "warn" -> pure LogLevelWarn
         other -> fail $ "Unrecognized log-level: " ++ show other
 
@@ -393,6 +395,7 @@ commandParser =
     ( mconcat
         [ mkCommand "search-commit" searchCommitParser searchCommitHelp,
           mkCommand "search-pr" searchPullRequestParser searchPullRequestHelp,
+          mkCommand "search-defaults" searchDefaultsParser searchDefaultsHelp,
           OA.commandGroup "Search commands:"
         ]
     )
@@ -408,8 +411,11 @@ commandParser =
 
     searchPullRequestParser = SearchPullRequest <$> pullRequestParser
     searchPullRequestHelp =
-      mkCmdDescStrNoLine
+      mkCmdDescStr
         "Searches for a pull-request. Only available for github.com"
+
+    searchDefaultsParser = pure $ SearchDefaults ()
+    searchDefaultsHelp = mkCmdDescStrNoLine "Runs searches on search-defaults from config file."
 
     deleteCacheParser = pure (DeleteCache ())
     deleteCacheHelp = mkCmdDescStr "Deletes the cache."

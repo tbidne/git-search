@@ -1,3 +1,8 @@
+search-defaults = [
+  { cmd = 'commit', arg = 'c190319', name = 'org/repo', desc = 'some desc' },
+  { cmd = 'pr', arg = 510883, name = 'org/repo2' }
+]
+
 [[repo-map]]
 name = 'org/repo'
 branches = [ '*master', '*unstable*' ]

@@ -1,15 +1,17 @@
 module Git.Search.Logging
   ( logDebug,
     logInfo,
+    logCommand,
     logWarn,
     logSuccess,
+    logWithLevel,
   )
 where
 
 import Git.Search.Config (Env (coreConfig))
 import Git.Search.Config.Data (Config (logColor, logLevel))
 import Git.Search.Logging.Data
-  ( LogLevel (LogLevelDebug, LogLevelInfo, LogLevelWarn),
+  ( LogLevel (LogLevelCommand, LogLevelDebug, LogLevelInfo, LogLevelWarn),
     mkLevelLog,
     mkSuccessLog,
   )
@@ -32,6 +34,15 @@ logInfo ::
   String ->
   Eff es ()
 logInfo = logWithLevel LogLevelInfo
+
+logCommand ::
+  ( HasCallStack,
+    Reader Env :> es,
+    Terminal :> es
+  ) =>
+  String ->
+  Eff es ()
+logCommand = logWithLevel LogLevelCommand
 
 logWarn ::
   ( HasCallStack,

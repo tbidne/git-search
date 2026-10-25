@@ -5,7 +5,7 @@ module Unit.Git.Search.Config.Args (tests) where
 import Git.Search.Config.Args (Args (MkArgs))
 import Git.Search.Config.Args qualified as Args
 import Git.Search.Config.Data
-  ( Command (DeleteCache, SearchCommit, SearchPullRequest),
+  ( Command (DeleteCache, SearchCommit, SearchDefaults, SearchPullRequest),
     Config (MkConfig, auth, clean, logColor, logLevel, repo),
     RepoConfig
       ( MkRepoConfig,
@@ -25,7 +25,7 @@ import Git.Search.Data
     Protocol (ProtocolHttps, ProtocolSsh),
   )
 import Git.Search.Logging.Data
-  ( LogLevel (LogLevelDebug, LogLevelInfo, LogLevelWarn),
+  ( LogLevel (LogLevelCommand, LogLevelDebug, LogLevelInfo, LogLevelWarn),
   )
 import System.Environment qualified as Env
 import Unit.Prelude
@@ -47,6 +47,7 @@ commandTests =
     "Commands"
     [ testDeleteCache,
       testSearchCommit,
+      testSearchDefaults,
       testSearchPullRequest
     ]
 
@@ -70,6 +71,16 @@ testSearchCommit = testProp1 desc "testSearchCommit" $ do
       [ "search-commit",
         commitStr
       ]
+
+testSearchDefaults :: TestTree
+testSearchDefaults = testProp1 desc "testSearchDefaults" $ do
+  testGetArgs e args
+  where
+    desc = "Parses search-defaults"
+
+    args = ["search-defaults"]
+
+    e = set' #command (SearchDefaults ()) defArgs
 
 testSearchPullRequest :: TestTree
 testSearchPullRequest = testProp1 desc "testSearchPullRequest" $ do
@@ -107,6 +118,7 @@ loggingTests =
       testLogColorOff,
       testLogLevelDebug,
       testLogLevelInfo,
+      testLogLevelCommand,
       testLogLevelWarn,
       testLogLevelOff
     ]
@@ -170,6 +182,21 @@ testLogLevelInfo = testProp1 desc "testLogLevelInfo" $ do
       ]
 
     e = set' (#coreConfig % #logLevel) (Just $ With LogLevelInfo) defArgs
+
+testLogLevelCommand :: TestTree
+testLogLevelCommand = testProp1 desc "testLogLevelCommand" $ do
+  testGetArgs e args
+  where
+    desc = "Parses --log-level command"
+
+    args =
+      [ "--log-level",
+        "command",
+        "search-commit",
+        commitStr
+      ]
+
+    e = set' (#coreConfig % #logLevel) (Just $ With LogLevelCommand) defArgs
 
 testLogLevelWarn :: TestTree
 testLogLevelWarn = testProp1 desc "testLogLevelWarn" $ do

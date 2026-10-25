@@ -132,6 +132,7 @@ test-suite integration
     Integration.DeleteCache
     Integration.Prelude
     Integration.SearchCommit
+    Integration.SearchDefaults
     Integration.SearchPullRequest
 
   build-depends:
