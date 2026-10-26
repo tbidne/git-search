@@ -10,6 +10,7 @@ module Git.Search.Runner
 where
 
 import Control.Exception.Utils qualified as Ex.Utils
+import Data.List qualified as L
 import Data.Tuple (uncurry)
 import Effectful.Concurrent qualified as CC
 import Effectful.Concurrent.Async qualified as Async
@@ -58,37 +59,45 @@ runSearch ::
 runSearch = withHiddenInput $ do
   envCmds <- getEnv
 
-  let cmdAction =
-        for_ envCmds $ \(env, cmd, mLog) -> do
+  let numCmds = length envCmds
+      cmdAction =
+        for_ (L.zip [1, 2 ..] envCmds) $ \(idx, (env, cmd, mLog)) -> do
           runReader env $ do
             for_ mLog (uncurry Logging.logWithLevel)
-            runCmd cmd
+            runCmd cmd (numCmds == idx)
 
   Async.race_ cmdAction drainStdinLoop
   where
+    -- Have to write this function in this slightly convoluted way, because
+    -- if runCmd takes any params other than Command, then it no longer
+    -- considers the SearchDefaults pattern to be redundant i.e. the
+    -- strict + Void checking does not work.
     runCmd = \case
-      DeleteCache cmdArgs -> Git.Search.deleteCache cmdArgs
-      SearchCommit cmdArgs -> Git.Search.searchCommit cmdArgs >>= printBranches
-      SearchPullRequest cmdArgs -> Git.Search.searchPullRequest cmdArgs >>= printBranches
+      DeleteCache cmdArgs -> \_ -> Git.Search.deleteCache cmdArgs
+      SearchCommit cmdArgs -> \finalCmd -> Git.Search.searchCommit cmdArgs >>= printBranches finalCmd
+      SearchPullRequest cmdArgs -> \finalCmd -> Git.Search.searchPullRequest cmdArgs >>= printBranches finalCmd
 
-    printBranches branches = case branches of
-      [] -> Logging.logSuccess "No branches found.\n"
-      bs@(_ : _) -> do
-        let numBranches = length bs
-            formatted = mconcat $ fmap ("\n - " <>) bs
-            suffix =
-              if numBranches == 1
-                then " branch:"
-                else " branches:"
+    printBranches finalCmd branches = do
+      -- If this is not the final command, append a newline.
+      let endLine = if finalCmd then "" else "\n"
+      case branches of
+        [] -> Logging.logSuccess $ "No branches found." <> endLine
+        bs@(_ : _) -> do
+          let numBranches = length bs
+              formatted = mconcat $ fmap ("\n - " <>) bs
+              suffix =
+                if numBranches == 1
+                  then " branch:"
+                  else " branches:"
 
-        Logging.logSuccess
-          $ mconcat
-            [ "Found ",
-              show numBranches,
-              suffix,
-              unpack formatted,
-              "\n"
-            ]
+          Logging.logSuccess
+            $ mconcat
+              [ "Found ",
+                show numBranches,
+                suffix,
+                unpack formatted,
+                endLine
+              ]
 
 getEnv ::
   ( FileReader :> es,
