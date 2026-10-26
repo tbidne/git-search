@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - search-defaults
 
   pull_request:
     branches:
