@@ -443,7 +443,7 @@ commandParser =
     searchDefaultsHelp = mkCmdDescStrNoLine "Runs searches on search-defaults from config file."
 
     deleteCacheParser = pure (DeleteCache ())
-    deleteCacheHelp = mkCmdDescStr "Deletes the cache."
+    deleteCacheHelp = mkCmdDescStrNoLine "Deletes the cache."
 
 commitParser :: Parser Commit
 commitParser =
