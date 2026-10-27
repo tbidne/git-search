@@ -6,10 +6,21 @@ module Git.Search.Config.Toml
   )
 where
 
+import Data.List qualified as L
 import Data.Map.Strict qualified as Map
 import Git.Search.Config.Data
   ( Config (MkConfig, auth, clean, logColor, logLevel, repo),
-    RepoConfig (MkRepoConfig, name),
+    RepoConfig
+      ( MkRepoConfig,
+        branches,
+        domain,
+        key,
+        name,
+        path,
+        protocol,
+        remoteName
+      ),
+    RepoMapKey (RepoMapKeyCustom, RepoMapKeyName),
   )
 import Git.Search.Config.Phase
   ( ConfigPhase
@@ -85,15 +96,32 @@ instance DecodeTOML Toml where
           Nothing -> Map.empty
           Just mp -> mp
 
-      decodeMap :: Decoder (Map RepoName (RepoConfig ConfigPhaseToml))
+      decodeMap :: Decoder (Map RepoMapKey (RepoConfig ConfigPhaseToml))
       decodeMap = do
-        assocVals <- fmap (\r -> (r.name, r)) <$> tomlDecoder
-        pure $ Map.fromList assocVals
+        (keyVals, nameVals) <- L.foldl' @[] go ([], []) <$> tomlDecoder
+        pure $ Map.fromList (keyVals ++ nameVals)
+        where
+          go (keys, names) r = case r.key of
+            -- 1. Key does not exist, so add the name.
+            Nothing -> (keys, (RepoMapKeyName r.name, r) : names)
+            -- 2. Key does exist, so add it, skip the name.
+            Just k -> ((RepoMapKeyCustom k, r) : keys, names)
 
       decodeRepoDefaults :: Decoder (RepoConfig ConfigPhaseTomlRepoDefaults)
       decodeRepoDefaults = do
-        fromMaybe (MkRepoConfig () () Nothing () () ())
+        fromMaybe defRepo
           <$> getFieldOptWith tomlDecoder "repo-defaults"
+        where
+          defRepo =
+            MkRepoConfig
+              { branches = (),
+                domain = (),
+                key = (),
+                name = Nothing,
+                path = (),
+                protocol = (),
+                remoteName = ()
+              }
 
       decodeSearchDefaults :: Decoder [(Either Commit Word32, RepoName, Maybe Text)]
       decodeSearchDefaults =

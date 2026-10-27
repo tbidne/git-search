@@ -10,16 +10,32 @@ import Data.Map.Strict qualified as Map
 import Git.Search.Config.Args (Args (coreConfig))
 import Git.Search.Config.Data
   ( Config (MkConfig, auth, clean, logColor, logLevel, repo),
-    RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
+    RepoConfig
+      ( MkRepoConfig,
+        branches,
+        domain,
+        key,
+        name,
+        path,
+        protocol,
+        remoteName
+      ),
+    RepoMapKey (RepoMapKeyCustom, RepoMapKeyName),
   )
-import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseArgs2, ConfigPhaseMerged, ConfigPhaseToml))
+import Git.Search.Config.Phase
+  ( ConfigPhase
+      ( ConfigPhaseArgs2,
+        ConfigPhaseMerged,
+        ConfigPhaseToml
+      ),
+  )
 import Git.Search.Config.Toml (Toml (coreConfig))
 import Git.Search.Config.WithDisabled (WithDisabled (Disabled, With))
 import Git.Search.Config.WithDisabled qualified as WD
 import Git.Search.Data
   ( Domain (MkDomain),
     Protocol (ProtocolHttps),
-    RepoName,
+    RepoName (unRepoName),
   )
 import Git.Search.Prelude
 
@@ -44,35 +60,31 @@ mergeConfig args mToml = case mToml of
                   { branches =
                       mergeBranches
                         args.coreConfig.repo.branches
-                        Map.empty
-                        name,
+                        Nothing,
                     domain =
                       mergeWD
                         defDomain
                         (.domain)
                         args.coreConfig.repo.domain
-                        Map.empty
-                        name,
+                        Nothing,
+                    key = (),
                     name,
                     path =
                       mergeWDMaybe
                         (.path)
                         args.coreConfig.repo.path
-                        Map.empty
-                        name,
+                        Nothing,
                     protocol =
                       mergeWD
                         defProtocol
                         (.protocol)
                         args.coreConfig.repo.protocol
-                        Map.empty
-                        name,
+                        Nothing,
                     remoteName =
                       mergeWDMaybe
                         (.remoteName)
                         args.coreConfig.repo.remoteName
-                        Map.empty
-                        name
+                        Nothing
                   }
             }
       }
@@ -98,43 +110,46 @@ mergeConfig args mToml = case mToml of
                   { branches =
                       mergeBranches
                         args.coreConfig.repo.branches
-                        toml.coreConfig.repo
-                        name,
+                        mRepo,
                     domain =
                       mergeWD
                         defDomain
                         (.domain)
                         args.coreConfig.repo.domain
-                        toml.coreConfig.repo
-                        name,
+                        mRepo,
+                    key = (),
                     name,
                     path =
                       mergeWDMaybe
                         (.path)
                         args.coreConfig.repo.path
-                        toml.coreConfig.repo
-                        name,
+                        mRepo,
                     protocol =
                       mergeWD
                         defProtocol
                         (.protocol)
                         args.coreConfig.repo.protocol
-                        toml.coreConfig.repo
-                        name,
+                        mRepo,
                     remoteName =
                       mergeWDMaybe
                         (.remoteName)
                         args.coreConfig.repo.remoteName
-                        toml.coreConfig.repo
-                        name
+                        mRepo
                   }
             }
       }
   where
-    name =
+    -- initName is either the CLI name or toml default name.
+    initName =
       mergeMaybe
         args.coreConfig.repo.name
         (mToml ^? _Just % #repoDefaults % #name % _Just)
+
+    (name, mRepo) = case initName of
+      Nothing -> (Nothing, Nothing)
+      Just n -> case (mToml ^? _Just % #coreConfig % #repo) >>= repoLookup n of
+        Nothing -> (Just n, Nothing)
+        Just r -> (Just r.name, Just r)
 
 mergeBoolFalse :: Maybe Bool -> Maybe Bool -> Bool
 mergeBoolFalse (Just b) _ = b
@@ -152,44 +167,44 @@ mergeMaybe a b = WD.toMaybe a <|> b
 
 mergeBranches ::
   Maybe (WithDisabled [OsString]) ->
-  Map RepoName (RepoConfig ConfigPhaseToml) ->
-  Maybe RepoName ->
+  Maybe (RepoConfig ConfigPhaseToml) ->
   [OsString]
-mergeBranches (Just Disabled) _ _ = []
-mergeBranches (Just (With branches)) _ _ = branches
-mergeBranches _ _ Nothing = []
-mergeBranches Nothing repoMap (Just repoName) =
-  maybe [] (.branches) $ Map.lookup repoName repoMap
+mergeBranches (Just Disabled) _ = []
+mergeBranches (Just (With branches)) _ = branches
+mergeBranches Nothing mRepo = maybe [] (.branches) mRepo
 
 mergeWDMaybe ::
   (RepoConfig ConfigPhaseToml -> Maybe a) ->
   Maybe (WithDisabled a) ->
-  Map RepoName (RepoConfig ConfigPhaseToml) ->
-  Maybe RepoName ->
+  Maybe (RepoConfig ConfigPhaseToml) ->
   Maybe a
-mergeWDMaybe _ (Just Disabled) _ _ = Nothing
-mergeWDMaybe _ (Just (With x)) _ _ = Just x
-mergeWDMaybe _ Nothing _ Nothing = Nothing
-mergeWDMaybe toA Nothing repoMap (Just repoName) =
-  toA =<< Map.lookup repoName repoMap
+mergeWDMaybe _ (Just Disabled) _ = Nothing
+mergeWDMaybe _ (Just (With x)) _ = Just x
+mergeWDMaybe toA Nothing mRepo = toA =<< mRepo
 
 mergeWD ::
   a ->
   (RepoConfig ConfigPhaseToml -> Maybe a) ->
   Maybe (WithDisabled a) ->
-  Map RepoName (RepoConfig ConfigPhaseToml) ->
-  Maybe RepoName ->
+  Maybe (RepoConfig ConfigPhaseToml) ->
   a
-mergeWD defA _ (Just Disabled) _ _ = defA
-mergeWD _ _ (Just (With x)) _ _ = x
-mergeWD defA _ Nothing _ Nothing = defA
-mergeWD defA toA Nothing repoMap (Just repoName) =
-  case Map.lookup repoName repoMap of
-    Nothing -> defA
-    Just rmv -> fromMaybe defA (toA rmv)
+mergeWD defA _ (Just Disabled) _ = defA
+mergeWD _ _ (Just (With x)) _ = x
+mergeWD defA toA Nothing mRepo = fromMaybe defA (mRepo >>= toA)
 
 defDomain :: Domain
 defDomain = MkDomain [osstr|github.com|]
 
 defProtocol :: Protocol
 defProtocol = ProtocolHttps
+
+-- | Performs a lookup in the map. First attempts a 'key' match, then a
+-- 'name' one.
+repoLookup ::
+  RepoName ->
+  Map RepoMapKey (RepoConfig ConfigPhaseToml) ->
+  Maybe (RepoConfig ConfigPhaseToml)
+repoLookup repoName mp = lookupKey <|> lookupName
+  where
+    lookupKey = Map.lookup (RepoMapKeyCustom repoName.unRepoName) mp
+    lookupName = Map.lookup (RepoMapKeyName repoName) mp

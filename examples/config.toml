@@ -28,9 +28,25 @@ arg = 510883
 name = 'nixos/nixpkgs'
 
 # Repo map is a map from a repo name to various args. If the given --name
-# matches an entry here, its values will be used, unless overridden by
-# the CLI.
+# (CLI or repo-defaults.name) matches an entry here, its values will be used,
+# unless overridden by the CLI.
+#
+# For instance, --name org/repo will match the below entry and use its
+# 'branches' field.
 [[repo-map]]
+# Optional key. With normal usage, the --name arg corresponds to the 'name'
+# field here. However, it may be the case that we want two entries
+# corresponding to the same repo name e.g. because we have identically named
+# repos in different domains, or we want two configurations with different
+# branch filters.
+#
+# The 'key' field serves to disambiguate these cases i.e. when looking up
+# --name, we first attempt to match 'key'. If no entry exists, we then fall
+# back to 'name'.
+#
+# Therefore, users who do not need multiple entries with the same 'name' can
+# ignore 'key' entirely, but it is there for those who need it.
+key = 'nix'
 # Mandatory repo name.
 name = 'nixos/nixpkgs'
 

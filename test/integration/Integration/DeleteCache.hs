@@ -6,7 +6,16 @@ import Git.Search.Config.Data
   ( Command (DeleteCache),
     Config (MkConfig, auth, clean, logColor, logLevel, repo),
     DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
-    RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
+    RepoConfig
+      ( MkRepoConfig,
+        branches,
+        domain,
+        key,
+        name,
+        path,
+        protocol,
+        remoteName
+      ),
   )
 import Integration.Prelude
 
@@ -39,6 +48,7 @@ testDeleteGlobal = testProp1 desc "testDeleteGlobal" $ do
                   MkRepoConfig
                     { branches = [],
                       domain = (),
+                      key = (),
                       name = (),
                       path = (),
                       protocol = (),
@@ -71,6 +81,7 @@ testDeleteLocal = testProp1 desc "testDeleteLocal" $ do
                   MkRepoConfig
                     { branches = [],
                       domain = (),
+                      key = (),
                       name = (),
                       path = (),
                       protocol = (),

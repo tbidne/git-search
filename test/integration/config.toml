@@ -20,6 +20,24 @@ path = '~/local/path'
 protocol = 'ssh'
 remote = 'upstream'
 
+[[repo-map]]
+key = 'repo1'
+name = 'org/repo_dupe'
+branches = [ '*master1' ]
+domain = 'server1.com'
+path = '~/local/path1'
+protocol = 'ssh'
+remote = 'upstream1'
+
+[[repo-map]]
+key = 'repo2'
+name = 'org/repo_dupe'
+branches = [ '*master2' ]
+domain = 'server2.com'
+path = '~/local/path2'
+protocol = 'ssh'
+remote = 'upstream2'
+
 [logging]
 log-color = 'off'
 log-level = 'debug'

@@ -5,7 +5,16 @@ module Integration.SearchPullRequest (tests) where
 import Git.Search.Config.Data
   ( Command (SearchPullRequest),
     Config (MkConfig, auth, clean, logColor, logLevel, repo),
-    RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
+    RepoConfig
+      ( MkRepoConfig,
+        branches,
+        domain,
+        key,
+        name,
+        path,
+        protocol,
+        remoteName
+      ),
     SearchPullRequestParams (MkSearchPullRequestParams),
   )
 import Git.Search.Logging.Data (LogLevel (LogLevelDebug))
@@ -47,6 +56,7 @@ testSearchPullRequestDefault = testProp1 desc "testSearchPullRequestDefault" $ d
                   MkRepoConfig
                     { branches = [],
                       domain = (),
+                      key = (),
                       name = (),
                       path = (),
                       protocol = (),
@@ -105,6 +115,7 @@ testSearchPullRequestArgs = testProp1 desc "testSearchPullRequestArgs" $ do
                   MkRepoConfig
                     { branches = unsafeOsStrs ["*master", "*unstable*"],
                       domain = (),
+                      key = (),
                       name = (),
                       path = (),
                       protocol = (),
@@ -157,6 +168,7 @@ testSearchPullRequestToml = testProp1 desc "testSearchPullRequestToml" $ do
                   MkRepoConfig
                     { branches = unsafeOsStrs ["*master", "*unstable*"],
                       domain = (),
+                      key = (),
                       name = (),
                       path = (),
                       protocol = (),
@@ -219,6 +231,7 @@ testSearchPullRequestArgsOverridesToml = testProp1 desc "testSearchPullRequestAr
                   MkRepoConfig
                     { branches = [],
                       domain = (),
+                      key = (),
                       name = (),
                       path = (),
                       protocol = (),
