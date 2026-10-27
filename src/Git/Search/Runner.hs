@@ -42,6 +42,7 @@ import System.IO qualified as IO
 import TOML qualified
 
 runSearch ::
+  forall es.
   ( Concurrent :> es,
     FileReader :> es,
     HasCallStack,
@@ -64,18 +65,17 @@ runSearch = withHiddenInput $ do
         for_ (L.zip [1, 2 ..] envCmds) $ \(idx, (env, cmd, mLog)) -> do
           runReader env $ do
             for_ mLog (uncurry Logging.logWithLevel)
-            runCmd cmd (numCmds == idx)
+            runCmd (numCmds == idx) cmd
 
   Async.race_ cmdAction drainStdinLoop
   where
-    -- Have to write this function in this slightly convoluted way, because
-    -- if runCmd takes any params other than Command, then it no longer
-    -- considers the SearchDefaults pattern to be redundant i.e. the
-    -- strict + Void checking does not work.
-    runCmd = \case
-      DeleteCache cmdArgs -> \_ -> Git.Search.deleteCache cmdArgs
-      SearchCommit cmdArgs -> \finalCmd -> Git.Search.searchCommit cmdArgs >>= printBranches finalCmd
-      SearchPullRequest cmdArgs -> \finalCmd -> Git.Search.searchPullRequest cmdArgs >>= printBranches finalCmd
+    -- Need the type signature, otherwise the extra Bool param infers
+    -- Command p, and GHC cannot eliminate the SearchDefaults pattern.
+    runCmd :: Bool -> Command ConfigPhaseEnv -> Eff (Reader Env : es) ()
+    runCmd finalCmd = \case
+      DeleteCache cmdArgs -> Git.Search.deleteCache cmdArgs
+      SearchCommit cmdArgs -> Git.Search.searchCommit cmdArgs >>= printBranches finalCmd
+      SearchPullRequest cmdArgs -> Git.Search.searchPullRequest cmdArgs >>= printBranches finalCmd
 
     printBranches finalCmd branches = do
       -- If this is not the final command, append a newline.
