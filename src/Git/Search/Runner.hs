@@ -190,6 +190,9 @@ getEnv = do
           mToml
   where
     setCmd = set' #command
+
+    -- Always overwrite name with search-defaults.
+    -- See NOTE: [SearchDefault name]
     setName = set' (#coreConfig % #repo % #name) . (Just . With)
 
     liftOne (env, cmd) = [(env, cmd, Nothing)]

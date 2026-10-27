@@ -27,6 +27,29 @@ data Toml = MkToml
     searchDefaults :: [(Either Commit Word32, RepoName, Maybe Text)]
   }
 
+-- NOTE: [Duplicate repos]
+--
+-- We currently have a limitation in that repo-map.name is unique i.e. we
+-- cannot have multiple entries with the same name. This rules out e.g. storing
+-- identical repo names for different domains, which is perfectly sensible,
+-- albeit niche.
+--
+-- The current design is due to simplicity i.e. CLI --name, repo-map.name, and
+-- repo-defaults.name all refer to the same thing, an actual org/repo name.
+--
+-- The repo-map.name field then performs double-duty i.e. acts as a key for
+-- CLI --name lookup.
+--
+-- The easiest way to change this would be to introduce a new toml field,
+-- repo-map.key. Then CLI --name performs the lookup on key. Keys would then
+-- be unique and user-defined.
+--
+-- The repo-map.name field would stay, but its meaning would be reduced to
+-- simply an org/repo name, hence could be duplicated.
+--
+-- The CLI --name param would then pull double-duty i.e. acting as an org/repo
+-- name or key in repo-map.
+
 instance DecodeTOML Toml where
   tomlDecoder = do
     (logColor, logLevel) <- decodeLogging
@@ -86,6 +109,17 @@ instance DecodeTOML Toml where
             "pr" -> Right <$> decodeSearchDefaultArg
             other -> fail $ "Unrecognized command: " ++ unpack other
 
+        -- NOTE: [SearchDefaults name]
+        --
+        -- We require the name to be set. Technically, this need not be the
+        -- case, as we could imagine:
+        --
+        --   1. Passing in the --name on the CLI.
+        --   2. Using repo-defaults.name from the TOML.
+        --
+        -- But these make the semantics confusing for arguably very little
+        -- (any?) gain. It is simpler to require each search to specify its
+        -- repo.
         repoName <- getFieldWith tomlDecoder "name"
         mDesc <- getFieldOptWith tomlDecoder "desc"
 
