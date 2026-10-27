@@ -11,6 +11,7 @@ import Git.Search.Config.Data
       ( MkRepoConfig,
         branches,
         domain,
+        key,
         name,
         path,
         protocol,
@@ -593,6 +594,7 @@ defArgs =
               MkRepoConfig
                 { branches = Nothing,
                   domain = Nothing,
+                  key = (),
                   name = Nothing,
                   path = Nothing,
                   protocol = Nothing,

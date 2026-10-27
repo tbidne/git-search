@@ -5,7 +5,16 @@ module Integration.SearchCommit (tests) where
 import Git.Search.Config.Data
   ( Command (SearchCommit),
     Config (MkConfig, auth, clean, logColor, logLevel, repo),
-    RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
+    RepoConfig
+      ( MkRepoConfig,
+        branches,
+        domain,
+        key,
+        name,
+        path,
+        protocol,
+        remoteName
+      ),
     SearchCommitParams (MkSearchCommitParams),
   )
 import Git.Search.Logging.Data (LogLevel (LogLevelDebug))
@@ -19,6 +28,9 @@ tests =
       testSearchCommitArgs,
       testSearchCommitToml,
       testSearchCommitTomlRepoDefaults,
+      testSearchCommitTomlKey1,
+      testSearchCommitTomlKey2,
+      testSearchCommitTomlKeyMiss,
       testSearchCommitArgsOverridesToml,
       testSearchCommitNameReq
     ]
@@ -46,6 +58,7 @@ testSearchCommitDefault = testProp1 desc "testSearchCommitDefault" $ do
                   MkRepoConfig
                     { branches = [],
                       domain = (),
+                      key = (),
                       name = (),
                       path = (),
                       protocol = (),
@@ -107,6 +120,7 @@ testSearchCommitArgs = testProp1 desc "testSearchCommitArgs" $ do
                   MkRepoConfig
                     { branches = unsafeOsStrs ["*master", "*unstable*"],
                       domain = (),
+                      key = (),
                       name = (),
                       path = (),
                       protocol = (),
@@ -152,6 +166,7 @@ testSearchCommitToml = testProp1 desc "testSearchCommitToml" $ do
                   MkRepoConfig
                     { branches = unsafeOsStrs ["*master", "*unstable*"],
                       domain = (),
+                      key = (),
                       name = (),
                       path = (),
                       protocol = (),
@@ -195,6 +210,7 @@ testSearchCommitTomlRepoDefaults = testProp1 desc "testSearchCommitTomlRepoDefau
                   MkRepoConfig
                     { branches = [],
                       domain = (),
+                      key = (),
                       name = (),
                       path = (),
                       protocol = (),
@@ -210,6 +226,144 @@ testSearchCommitTomlRepoDefaults = testProp1 desc "testSearchCommitTomlRepoDefau
           ( unsafeCommit "abcdef0",
             MkRepoPath $ root <</>> [reldirPathSep|.cache/git-search/my/repo/|],
             unsafeRemoteUri "https://github.com/my/repo"
+          )
+
+testSearchCommitTomlKey1 :: TestTree
+testSearchCommitTomlKey1 = testProp1 desc "testSearchCommitTomlKey1" $ do
+  (env, cmd) <- liftIO $ runEnvConfig args
+
+  expectedEnv === env
+  expectedCmd === cmd
+  where
+    desc = "Toml config with key 1"
+
+    args =
+      [ "--name",
+        "repo1",
+        "search-commit",
+        "abcdef0"
+      ]
+
+    expectedEnv =
+      MkEnv
+        { coreConfig =
+            MkConfig
+              { auth = Nothing,
+                clean = True,
+                logColor = False,
+                logLevel = Just LogLevelDebug,
+                repo =
+                  MkRepoConfig
+                    { branches = unsafeOsStrs ["*master1"],
+                      domain = (),
+                      key = (),
+                      name = (),
+                      path = (),
+                      protocol = (),
+                      remoteName = Just $ unsafeRemoteName "upstream1"
+                    }
+              }
+        }
+
+    expectedCmd :: Command ConfigPhaseEnv
+    expectedCmd =
+      SearchCommit
+        $ MkSearchCommitParams
+          ( unsafeCommit "abcdef0",
+            MkRepoPath $ homeDir <</>> [reldirPathSep|local/path1/|],
+            unsafeRemoteUri "git@server1.com:org/repo_dupe"
+          )
+
+testSearchCommitTomlKey2 :: TestTree
+testSearchCommitTomlKey2 = testProp1 desc "testSearchCommitTomlKey2" $ do
+  (env, cmd) <- liftIO $ runEnvConfig args
+
+  expectedEnv === env
+  expectedCmd === cmd
+  where
+    desc = "Toml config with key 2"
+
+    args =
+      [ "--name",
+        "repo2",
+        "search-commit",
+        "abcdef0"
+      ]
+
+    expectedEnv =
+      MkEnv
+        { coreConfig =
+            MkConfig
+              { auth = Nothing,
+                clean = True,
+                logColor = False,
+                logLevel = Just LogLevelDebug,
+                repo =
+                  MkRepoConfig
+                    { branches = unsafeOsStrs ["*master2"],
+                      domain = (),
+                      key = (),
+                      name = (),
+                      path = (),
+                      protocol = (),
+                      remoteName = Just $ unsafeRemoteName "upstream2"
+                    }
+              }
+        }
+
+    expectedCmd :: Command ConfigPhaseEnv
+    expectedCmd =
+      SearchCommit
+        $ MkSearchCommitParams
+          ( unsafeCommit "abcdef0",
+            MkRepoPath $ homeDir <</>> [reldirPathSep|local/path2/|],
+            unsafeRemoteUri "git@server2.com:org/repo_dupe"
+          )
+
+testSearchCommitTomlKeyMiss :: TestTree
+testSearchCommitTomlKeyMiss = testProp1 desc "testSearchCommitTomlKeyMiss" $ do
+  (env, cmd) <- liftIO $ runEnvConfig args
+
+  expectedEnv === env
+  expectedCmd === cmd
+  where
+    desc = "Toml config with key miss"
+
+    args =
+      [ "--name",
+        "repo_dupe",
+        "search-commit",
+        "abcdef0"
+      ]
+
+    expectedEnv =
+      MkEnv
+        { coreConfig =
+            MkConfig
+              { auth = Nothing,
+                clean = True,
+                logColor = False,
+                logLevel = Just LogLevelDebug,
+                repo =
+                  MkRepoConfig
+                    { branches = [],
+                      domain = (),
+                      key = (),
+                      name = (),
+                      path = (),
+                      protocol = (),
+                      remoteName = Nothing
+                    }
+              }
+        }
+
+    expectedCmd :: Command ConfigPhaseEnv
+    expectedCmd =
+      SearchCommit
+        $ MkSearchCommitParams
+          ( unsafeCommit "abcdef0",
+            MkRepoPath $ root <</>> [reldirPathSep|.cache/git-search/repo_dupe/|],
+            unsafeRemoteUri "https://github.com/repo_dupe"
           )
 
 testSearchCommitArgsOverridesToml :: TestTree
@@ -256,6 +410,7 @@ testSearchCommitArgsOverridesToml = testProp1 desc "testSearchCommitArgsOverride
                   MkRepoConfig
                     { branches = [],
                       domain = (),
+                      key = (),
                       name = (),
                       path = (),
                       protocol = (),

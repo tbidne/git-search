@@ -18,7 +18,16 @@ import Git.Search.Config.Data
   ( Command (DeleteCache, SearchCommit, SearchDefaults, SearchPullRequest),
     Config (MkConfig, auth, clean, logColor, logLevel, repo),
     DeleteCacheF,
-    RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
+    RepoConfig
+      ( MkRepoConfig,
+        branches,
+        domain,
+        key,
+        name,
+        path,
+        protocol,
+        remoteName
+      ),
     SearchCommitF,
     SearchDefaultsF,
     SearchPullRequestF,
@@ -184,6 +193,7 @@ argsParser = do
                     MkRepoConfig
                       { branches,
                         domain,
+                        key = (),
                         name,
                         path,
                         protocol,

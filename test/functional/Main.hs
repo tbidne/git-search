@@ -65,12 +65,12 @@ testNixpkgsCommitClone cloneTimeRef = testCase desc $ do
   where
     desc = "Searches commit in nixos/nixpkgs with clean"
 
-    args = "--clean" : "on" : mkArgs [osp|off|]
+    args = "--clean" : "on" : argsToStrs mempty
 
 testNixpkgsCommitFetch :: IORef (Maybe Double) -> TestTree
 testNixpkgsCommitFetch cloneTimeRef = testCase desc $ do
   start2 <- CC.getMonotonicTime
-  results <- Set.fromList <$> runSearch (mkArgs [osp|off|])
+  results <- Set.fromList <$> runSearch (argsToStrs mempty)
   end2 <- CC.getMonotonicTime
   assertResults fullExpected results
 
@@ -93,7 +93,7 @@ testNixpkgsCommitFetch cloneTimeRef = testCase desc $ do
 
 testNixpkgsCommitBranches :: TestTree
 testNixpkgsCommitBranches = testCase desc $ do
-  results <- runSearch (mkArgs [ospPathSep|examples/config.toml|])
+  results <- runSearch (argsToStrs argsCfg)
   expected @=? results
   where
     desc = "Searches commit in nixos/nixpkgs with branch filters"
@@ -117,12 +117,8 @@ testNixpkgsDefaults mAuth = testCase desc $ do
       Just auth -> "--auth" : auth : baseArgs
 
     baseArgs =
-      mkArgsCmd
-        [ "--branches",
-          branches,
-          "search-defaults"
-        ]
-        [osp|./examples/config.toml|]
+      ["--branches", branches]
+        ++ (argsToStrs $ argsCfg {cmd = Just ["search-defaults"]})
 
     expected =
       [ -- Both results
@@ -149,11 +145,7 @@ testNixpkgsPullRequest mAuth = testCase desc $ do
       Just auth -> "--auth" : auth : baseArgs
 
     baseArgs =
-      mkArgsCmd
-        [ "search-pr",
-          "510883"
-        ]
-        [osp|off|]
+      argsToStrs $ mempty {cmd = Just ["search-pr", "510883"]}
 
     expected =
       [ "- origin/haskell-updates",
@@ -164,25 +156,55 @@ testNixpkgsPullRequest mAuth = testCase desc $ do
         "- origin/nixpkgs-unstable"
       ]
 
-mkArgs :: OsString -> [String]
-mkArgs =
-  mkArgsCmd
-    [ "search-commit",
-      "c190319055bb5c31acfd7bb8356ce9ab05cb2b36"
-    ]
+data Args = MkArgs
+  { cmd :: Maybe [String],
+    cfg :: Maybe OsString,
+    name :: Maybe String
+  }
 
-mkArgsCmd :: [String] -> OsString -> [String]
-mkArgsCmd cmdArgs cfgPath =
-  [ "--config",
-    unsafeDecode cfgPath,
-    "--log-color",
-    "off",
-    "--log-level",
-    "debug",
-    "--name",
-    "nixos/nixpkgs"
-  ]
+instance Semigroup Args where
+  MkArgs x1 x2 x3 <> MkArgs y1 y2 y3 =
+    MkArgs (x1 <|> y1) (x2 <|> y2) (x3 <|> y3)
+
+instance Monoid Args where
+  mempty = MkArgs Nothing Nothing Nothing
+
+argsCfg :: Args
+argsCfg =
+  MkArgs
+    { cmd = Nothing,
+      cfg = Just [osstr|examples/config.toml|],
+      name = Just "nix"
+    }
+
+argsToStrs :: Args -> [String]
+argsToStrs args =
+  cfgArgs
+    ++ otherArgs
+    ++ nameArgs
     ++ cmdArgs
+  where
+    cfgArgs = case args.cfg of
+      Nothing -> ["--config", "off"]
+      Just cfgPath -> ["--config", unsafeDecode cfgPath]
+
+    cmdArgs =
+      fromMaybe
+        ["search-commit", "c190319055bb5c31acfd7bb8356ce9ab05cb2b36"]
+        args.cmd
+
+    nameArgs =
+      maybe
+        ["--name", "nixos/nixpkgs"]
+        (\n -> ["--name", n])
+        args.name
+
+    otherArgs =
+      [ "--log-color",
+        "off",
+        "--log-level",
+        "debug"
+      ]
 
 fullExpected :: [Text]
 fullExpected =

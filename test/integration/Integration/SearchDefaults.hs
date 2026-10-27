@@ -5,7 +5,16 @@ module Integration.SearchDefaults (tests) where
 import Git.Search.Config.Data
   ( Command (SearchCommit, SearchPullRequest),
     Config (MkConfig, auth, clean, logColor, logLevel, repo),
-    RepoConfig (MkRepoConfig, branches, domain, name, path, protocol, remoteName),
+    RepoConfig
+      ( MkRepoConfig,
+        branches,
+        domain,
+        key,
+        name,
+        path,
+        protocol,
+        remoteName
+      ),
     SearchCommitParams (MkSearchCommitParams),
     SearchPullRequestParams (MkSearchPullRequestParams),
   )
@@ -52,6 +61,7 @@ testSearchDefaults = testProp1 desc "testSearchDefaults" $ do
                   MkRepoConfig
                     { branches = [[osstr|*master|], [osstr|*unstable*|]],
                       domain = (),
+                      key = (),
                       name = (),
                       path = (),
                       protocol = (),
@@ -81,6 +91,7 @@ testSearchDefaults = testProp1 desc "testSearchDefaults" $ do
                   MkRepoConfig
                     { branches = [],
                       domain = (),
+                      key = (),
                       name = (),
                       path = (),
                       protocol = (),

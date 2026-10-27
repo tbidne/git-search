@@ -6,6 +6,9 @@ module Git.Search.Config.Data
     Config (..),
     RepoConfig (..),
 
+    -- ** Misc
+    RepoMapKey (..),
+
     -- * Command
     Command (..),
     SearchCommitParams (..),
@@ -71,6 +74,14 @@ type family DomainF p where
   DomainF ConfigPhaseMerged = Domain
   DomainF ConfigPhaseEnv = ()
 
+type KeyF :: ConfigPhase -> Type
+type family KeyF p where
+  KeyF ConfigPhaseArgs1 = ()
+  KeyF ConfigPhaseToml = Maybe OsString
+  KeyF ConfigPhaseTomlRepoDefaults = ()
+  KeyF ConfigPhaseMerged = ()
+  KeyF ConfigPhaseEnv = ()
+
 type NameF :: ConfigPhase -> Type -> Type
 type family NameF p a where
   NameF ConfigPhaseArgs1 a = Maybe (WithDisabled a)
@@ -102,6 +113,8 @@ data RepoConfig p = MkRepoConfig
     branches :: BranchesF p,
     -- | Domain e.g. github.com
     domain :: DomainF p,
+    -- | Optional key, for allowing multiple map entries with duplicate keys.
+    key :: KeyF p,
     -- | Repo name e.g. org/repo
     name :: NameF p RepoName,
     -- | Optional path to repo on the file-system, overrides default cache.
@@ -117,6 +130,7 @@ data RepoConfig p = MkRepoConfig
 deriving stock instance
   ( Eq (BranchesF p),
     Eq (DomainF p),
+    Eq (KeyF p),
     Eq (NameF p RepoName),
     Eq (PathF p),
     Eq (ProtocolF p),
@@ -127,6 +141,7 @@ deriving stock instance
 deriving stock instance
   ( Show (BranchesF p),
     Show (DomainF p),
+    Show (KeyF p),
     Show (NameF p RepoName),
     Show (PathF p),
     Show (ProtocolF p),
@@ -142,6 +157,7 @@ instance DecodeTOML (RepoConfig ConfigPhaseTomlRepoDefaults) where
       $ MkRepoConfig
         { branches = (),
           domain = (),
+          key = (),
           name,
           path = (),
           protocol = (),
@@ -154,6 +170,7 @@ instance DecodeTOML (RepoConfig ConfigPhaseToml) where
   tomlDecoder = do
     branches <- branchesDecoder
     domain <- domainDecoder
+    key <- keyDecoder
     name <- nameDecoder
     path <- pathDecoder
     protocol <- protocolDecoder
@@ -163,6 +180,7 @@ instance DecodeTOML (RepoConfig ConfigPhaseToml) where
       $ MkRepoConfig
         { branches,
           domain,
+          key,
           name,
           path,
           protocol,
@@ -176,6 +194,8 @@ instance DecodeTOML (RepoConfig ConfigPhaseToml) where
           Just bs -> traverse encodeFail bs
 
       domainDecoder = getFieldOptWith tomlDecoder "domain"
+
+      keyDecoder = getFieldOptWith Toml.Utils.osStringDecoder "key"
 
       nameDecoder = getFieldWith tomlDecoder "name"
 
@@ -262,10 +282,22 @@ type family AuthF p where
   AuthF ConfigPhaseMerged = Maybe OsString
   AuthF ConfigPhaseEnv = Maybe OsString
 
+-- | Key for toml RepoConfig Map. We have two types as we want it keyed on
+-- both the optional field 'key' and mandatory 'name'.
+data RepoMapKey
+  = -- | Optional 'key' field. This field is entirely user-defined, hence it
+    -- allows for multiple entries with the same repo name e.g.
+    -- nixos/nixpkgs.
+    RepoMapKeyCustom OsString
+  | -- | Mandatory 'name' field. This field corresponds to the actual
+    -- repository name e.g. nixos/nixpkgs in github.com/nixos/nixpkgs.
+    RepoMapKeyName RepoName
+  deriving stock (Eq, Show, Ord)
+
 type RepoF :: ConfigPhase -> Type
 type family RepoF p where
   RepoF ConfigPhaseArgs1 = RepoConfig ConfigPhaseArgs1
-  RepoF ConfigPhaseToml = Map RepoName (RepoConfig ConfigPhaseToml)
+  RepoF ConfigPhaseToml = Map RepoMapKey (RepoConfig ConfigPhaseToml)
   RepoF ConfigPhaseMerged = RepoConfig ConfigPhaseMerged
   RepoF ConfigPhaseEnv = RepoConfig ConfigPhaseEnv
 
