@@ -5,6 +5,8 @@ module Git.Search.Logging.Data
   )
 where
 
+import Data.Text.Builder.Linear (Builder)
+import Data.Text.Builder.Linear qualified as TBL
 import Effectful.Time.Static (getSystemTimeString)
 import Git.Search.Prelude
 
@@ -28,54 +30,58 @@ mkLevelLog ::
   ( HasCallStack,
     Time :> es
   ) =>
-  Bool -> LogLevel -> String -> Eff es String
+  Bool ->
+  LogLevel ->
+  Text ->
+  Eff es Text
 mkLevelLog color lvl msg = do
   ts <- getTimestampHeader
-  pure $ colorFn (ts <> levelToHeader lvl <> msg)
+  pure $ TBL.runBuilder $ colorFn (ts <> levelToHeader lvl <> msgBuilder)
   where
+    msgBuilder = TBL.fromText msg
     colorFn = mkColorFn color (levelToColor lvl)
 
-mkSuccessLog :: Bool -> String -> String
-mkSuccessLog color = mkColorFn color green
+mkSuccessLog :: Bool -> Text -> Text
+mkSuccessLog color = TBL.runBuilder . mkColorFn color green . TBL.fromText
 
-mkColorFn :: Bool -> String -> String -> String
+mkColorFn :: Bool -> Builder -> Builder -> Builder
 mkColorFn True colorCode = \s -> colorCode <> s <> endCode
 mkColorFn False _ = id
 
-getTimestampHeader :: (HasCallStack, Time :> es) => Eff es String
-getTimestampHeader = brackets <$> getSystemTimeString
+getTimestampHeader :: (HasCallStack, Time :> es) => Eff es Builder
+getTimestampHeader = brackets . fromString <$> getSystemTimeString
 
-levelToHeader :: LogLevel -> String
+levelToHeader :: LogLevel -> Builder
 levelToHeader = \case
   LogLevelDebug -> "[Debug]: "
   LogLevelInfo -> "[Info]:  "
   LogLevelCommand -> "[Cmd]:   "
   LogLevelWarn -> "[Warn]:  "
 
-levelToColor :: LogLevel -> String
+levelToColor :: LogLevel -> Builder
 levelToColor = \case
   LogLevelDebug -> gray
   LogLevelInfo -> blue
   LogLevelCommand -> magenta
   LogLevelWarn -> yellow
 
-brackets :: String -> String
-brackets s = '[' : s <> "]"
+brackets :: Builder -> Builder
+brackets s = "[" <> s <> "]"
 
-blue :: String
+blue :: Builder
 blue = "\ESC[34m"
 
-green :: String
+green :: Builder
 green = "\ESC[32m"
 
-magenta :: String
+magenta :: Builder
 magenta = "\ESC[35m"
 
-yellow :: String
+yellow :: Builder
 yellow = "\ESC[33m"
 
-gray :: String
+gray :: Builder
 gray = "\ESC[90m"
 
-endCode :: String
+endCode :: Builder
 endCode = "\ESC[0m"

@@ -55,19 +55,19 @@ deleteCache ::
 deleteCache cacheType =
   case cacheType of
     DeleteCacheGlobal (MkPath cacheDir) -> do
-      Logging.logDebug $ "Deleting cache: " <> decodeLenient cacheDir
+      Logging.logDebug $ "Deleting cache: " <> pack (decodeLenient cacheDir)
 
       PW.removePathForcibly cacheDir
     DeleteCacheLocal repoPath -> do
       let repoDir = repoPathToOsP repoPath
-          repoDirStr = decodeLenient repoDir
+          repoDirStr = pack $ decodeLenient repoDir
 
       Logging.logDebug $ "Deleting cache repo: " <> repoDirStr
 
       exists <- PR.doesDirectoryExist repoDir
       if exists
         then PW.removePathForcibly repoDir
-        else throwString $ "Cached repository does not exist: " <> repoDirStr
+        else throwText $ "Cached repository does not exist: " <> repoDirStr
 
 -- | Returns a list of branches matching the search criteria.
 searchCommit ::
@@ -131,29 +131,30 @@ prToCommit prNum repoName = do
 
   case pr.state of
     PullRequestOpen ->
-      Logging.logInfo $ "Pull request " ++ prStr ++ " is currently open."
+      Logging.logInfo $ "Pull request " <> prStr <> " is currently open."
     PullRequestClosed ->
       if pr.merged
         then
-          Logging.logDebug $ "Pull request " ++ prStr ++ " is merged."
+          Logging.logDebug $ "Pull request " <> prStr <> " is merged."
         else
-          Logging.logWarn $ "Pull request " ++ prStr ++ " is closed but unmerged."
+          Logging.logWarn $ "Pull request " <> prStr <> " is closed but unmerged."
 
-  let commitStr = unpack pr.head.sha
+  let commitStr = pr.head.sha
 
-  Logging.logDebug $ "Found commit (" ++ show pr.commits ++ "): " ++ commitStr
+  Logging.logDebug $ "Found commit (" <> showt pr.commits <> "): " <> commitStr
 
-  MkCommit <$> encodeThrowM commitStr
+  MkCommit <$> encodeThrowM (unpack commitStr)
   where
-    prStr = show prNum
+    prStr = showt prNum
 
     baseUrl =
-      mconcat
-        [ "https://api.github.com/repos/",
-          decodeLenient repoName.unRepoName,
-          "/pulls/",
-          prStr
-        ]
+      unpack
+        $ mconcat
+          [ "https://api.github.com/repos/",
+            pack $ decodeLenient repoName.unRepoName,
+            "/pulls/",
+            prStr
+          ]
 
     updateReq hs r =
       r
@@ -228,17 +229,17 @@ cloneRepo repoPath repoSrc = do
       runClone
   where
     runClone = do
-      Logging.logInfo $ "Cloning " ++ repoSrcStr ++ "..."
+      Logging.logInfo $ "Cloning " <> repoSrcStr <> "..."
       timeStr <- withTiming_ $ runGit_ cloneArgs
-      Logging.logInfo $ "Clone finished: " ++ timeStr
+      Logging.logInfo $ "Clone finished: " <> timeStr
 
     runFetch = do
       env <- ask @Env
-      Logging.logInfo $ "Fetching " ++ repoSrcStr ++ "..."
+      Logging.logInfo $ "Fetching " <> repoSrcStr <> "..."
 
       timeStr <- PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
         withTiming_ $ runGit_ (fetchArgs env.coreConfig.repo.remoteName)
-      Logging.logInfo $ "Fetch finished: " ++ timeStr
+      Logging.logInfo $ "Fetch finished: " <> timeStr
 
     -- Our args will make a bare repo with no files e.g. git clone org/some-repo
     -- in ~/.cache/git-search will create
@@ -267,8 +268,8 @@ cloneRepo repoPath repoSrc = do
       ]
 
     repoPathOsP = toOsPath repoPath.unRepoPath
-    repoPathStr = decodeLenient repoPathOsP
-    repoSrcStr = decodeLenient repoSrc.unRepoRemoteUri
+    repoPathStr = pack $ decodeLenient repoPathOsP
+    repoSrcStr = pack $ decodeLenient repoSrc.unRepoRemoteUri
 
 findBranches ::
   ( HasCallStack,
@@ -284,7 +285,7 @@ findBranches ::
 findBranches commit repoPath = do
   env <- ask @Env
 
-  Logging.logInfo $ "Searching for hash " ++ hashStr ++ "..."
+  Logging.logInfo $ "Searching for hash " <> hashStr <> "..."
 
   commitExists <- doesCommitExist commit repoPath
 
@@ -293,7 +294,7 @@ findBranches commit repoPath = do
     else do
       PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
         (timeStr, out) <- withTiming $ runGitOut (gitArgs env.coreConfig.repo.branches)
-        Logging.logInfo $ "Search finished: " ++ timeStr
+        Logging.logInfo $ "Search finished: " <> timeStr
         toText <$> decodeThrowM out
   where
     gitArgs branches = case branches of
@@ -311,7 +312,7 @@ findBranches commit repoPath = do
 
     toText = fmap T.strip . T.lines . pack
 
-    hashStr = decodeLenient commit.unCommit
+    hashStr = pack $ decodeLenient commit.unCommit
 
 doesCommitExist ::
   ( HasCallStack,
@@ -428,7 +429,7 @@ runProc exe args = do
   let msg =
         mconcat
           [ "runProcess: ",
-            L.unwords (exeStr : argsStrs)
+            T.unwords (pack exeStr : fmap pack argsStrs)
           ]
 
   Logging.logDebug msg
@@ -442,11 +443,12 @@ withTiming ::
     Time :> es
   ) =>
   Eff es a ->
-  Eff es (String, a)
+  Eff es (Text, a)
 withTiming m = do
   (ts, r) <- Time.withTiming m
   let tsStr =
-        Time.Rel.formatRelativeTime fmt
+        pack
+          . Time.Rel.formatRelativeTime fmt
           . Time.Rel.fromSeconds
           . floor
           . Time.toSeconds
@@ -459,7 +461,7 @@ withTiming m = do
           verbosity = Time.Rel.FormatVerbosityCompact
         }
 
-withTiming_ :: (HasCallStack, Time :> es) => Eff es a -> Eff es String
+withTiming_ :: (HasCallStack, Time :> es) => Eff es a -> Eff es Text
 withTiming_ = fmap fst . withTiming
 
 repoPathToOsP :: RepoPath -> OsPath

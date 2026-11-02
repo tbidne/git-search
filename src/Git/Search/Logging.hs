@@ -23,7 +23,7 @@ logDebug ::
     Terminal :> es,
     Time :> es
   ) =>
-  String ->
+  Text ->
   Eff es ()
 logDebug = logWithLevel LogLevelDebug
 
@@ -33,7 +33,7 @@ logInfo ::
     Terminal :> es,
     Time :> es
   ) =>
-  String ->
+  Text ->
   Eff es ()
 logInfo = logWithLevel LogLevelInfo
 
@@ -43,7 +43,7 @@ logCommand ::
     Terminal :> es,
     Time :> es
   ) =>
-  String ->
+  Text ->
   Eff es ()
 logCommand = logWithLevel LogLevelCommand
 
@@ -53,7 +53,7 @@ logWarn ::
     Terminal :> es,
     Time :> es
   ) =>
-  String ->
+  Text ->
   Eff es ()
 logWarn = logWithLevel LogLevelWarn
 
@@ -62,11 +62,11 @@ logSuccess ::
     Reader Env :> es,
     Terminal :> es
   ) =>
-  String ->
+  Text ->
   Eff es ()
 logSuccess t = do
   env <- ask @Env
-  putStrLn $ mkSuccessLog env.coreConfig.logColor t
+  putTextLn $ mkSuccessLog env.coreConfig.logColor t
 
 logWithLevel ::
   ( HasCallStack,
@@ -75,7 +75,7 @@ logWithLevel ::
     Time :> es
   ) =>
   LogLevel ->
-  String ->
+  Text ->
   Eff es ()
 logWithLevel logLvl t = do
   env <- ask @Env
@@ -83,4 +83,4 @@ logWithLevel logLvl t = do
     Nothing -> pure ()
     Just cfgLvl -> do
       when (cfgLvl <= logLvl) $ do
-        putStrLn =<< mkLevelLog env.coreConfig.logColor logLvl t
+        putTextLn =<< mkLevelLog env.coreConfig.logColor logLvl t

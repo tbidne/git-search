@@ -9,6 +9,9 @@ module Git.Search.Prelude
     mapThrowLeft,
     throwLeft,
 
+    -- * Text
+    showt,
+
     -- * Dev
     todo,
   )
@@ -29,7 +32,13 @@ import Control.Exception as X
     displayException,
     throwIO,
   )
-import Control.Exception.Utils as X (MonadThrow, throwM, throwString, trySync)
+import Control.Exception.Utils as X
+  ( MonadThrow,
+    throwM,
+    throwString,
+    throwText,
+    trySync,
+  )
 import Control.Monad as X
   ( Monad,
     MonadFail,
@@ -177,6 +186,9 @@ mapThrowLeft f = throwLeft . first f
 throwLeft :: (Exception e, MonadThrow m) => Either e a -> m a
 throwLeft (Right x) = pure x
 throwLeft (Left e) = throwM e
+
+showt :: (Show a) => a -> Text
+showt = pack . show
 
 todo :: forall {r :: RuntimeRep} (a :: TYPE r). (HasCallStack) => a
 todo = raise# (errorCallWithCallStackException "Prelude.todo: not yet implemented" ?callStack)

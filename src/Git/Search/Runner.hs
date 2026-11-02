@@ -93,9 +93,9 @@ runSearch = withHiddenInput $ do
           Logging.logSuccess
             $ mconcat
               [ "Found ",
-                show numBranches,
+                showt numBranches,
                 suffix,
-                unpack formatted,
+                formatted,
                 endLine
               ]
 
@@ -106,7 +106,7 @@ getEnv ::
     PathReader :> es,
     PathWriter :> es
   ) =>
-  Eff es [(Env, Command ConfigPhaseEnv, Maybe (LogLevel, String))]
+  Eff es [(Env, Command ConfigPhaseEnv, Maybe (LogLevel, Text))]
 getEnv = do
   args <- Git.Search.Config.Args.getArgs
   mToml <- getToml args
@@ -158,10 +158,10 @@ getEnv = do
     SearchDefaults () -> do
       for searchDefaults $ \(eCmd, repoName, mDesc) -> do
         -- Create the actual command to run.
-        let desc = unpack $ maybe "" (": " <>) mDesc
+        let desc = maybe "" (": " <>) mDesc
             (tmpCmd, msg) = case eCmd of
               Left commit ->
-                let commitStr = decodeLenient $ commit ^. #unCommit
+                let commitStr = pack $ decodeLenient $ commit ^. #unCommit
                     logMsg =
                       mconcat
                         [ "Running search-commit (",
@@ -174,7 +174,7 @@ getEnv = do
                 let logMsg =
                       mconcat
                         [ "Running search-pr (",
-                          show pr,
+                          showt pr,
                           ")",
                           desc
                         ]

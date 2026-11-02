@@ -158,6 +158,3 @@ displayUnixTime var unixTimeOsStr = do
           value = Just unixTimeOsStr,
           reason = encodeLenient str
         }
-
-showt :: (Show a) => a -> Text
-showt = pack . show
