@@ -285,7 +285,7 @@ findBranches ::
 findBranches commit repoPath = do
   env <- ask @Env
 
-  Logging.logInfo $ "Searching for hash " <> hashStr <> "..."
+  Logging.logInfo $ "Searching for commit " <> hashStr <> "..."
 
   commitExists <- doesCommitExist commit repoPath
 
