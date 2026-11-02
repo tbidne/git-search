@@ -189,11 +189,11 @@ testLogLevelCommand :: TestTree
 testLogLevelCommand = testProp1 desc "testLogLevelCommand" $ do
   testGetArgs e args
   where
-    desc = "Parses --log-level command"
+    desc = "Parses --log-level cmd"
 
     args =
       [ "--log-level",
-        "command",
+        "cmd",
         "search-commit",
         commitStr
       ]

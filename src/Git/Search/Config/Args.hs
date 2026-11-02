@@ -233,8 +233,8 @@ logLevelParser =
       r
     $ mconcat
       [ OA.long "log-level",
-        OA.metavar "(debug | info | command | warn | off)",
-        OA.completeWith ["debug", "info", "command", "warn", "off"],
+        OA.metavar "(debug | info | cmd | warn | off)",
+        OA.completeWith ["debug", "info", "cmd", "warn", "off"],
         mkHelpNoLine "Enables logging."
       ]
   where
@@ -243,7 +243,7 @@ logLevelParser =
       WD.disabledParser s $ case s of
         "debug" -> pure LogLevelDebug
         "info" -> pure LogLevelInfo
-        "command" -> pure LogLevelCommand
+        "cmd" -> pure LogLevelCommand
         "warn" -> pure LogLevelWarn
         other -> fail $ "Unrecognized log-level: " ++ show other
 

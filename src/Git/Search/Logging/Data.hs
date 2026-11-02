@@ -22,7 +22,7 @@ instance DecodeTOML LogLevel where
     tomlDecoder @Text >>= \case
       "debug" -> pure LogLevelDebug
       "info" -> pure LogLevelInfo
-      "command" -> pure LogLevelCommand
+      "cmd" -> pure LogLevelCommand
       "warn" -> pure LogLevelWarn
       other -> fail $ "Unrecognized log-level" ++ show other
 
