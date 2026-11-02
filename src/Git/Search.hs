@@ -47,7 +47,8 @@ deleteCache ::
     PathReader :> es,
     PathWriter :> es,
     Reader Env :> es,
-    Terminal :> es
+    Terminal :> es,
+    Time :> es
   ) =>
   DeleteCacheType ->
   Eff es ()
@@ -108,7 +109,8 @@ prToCommit ::
   ( HasCallStack,
     Network :> es,
     Reader Env :> es,
-    Terminal :> es
+    Terminal :> es,
+    Time :> es
   ) =>
   Word32 ->
   RepoName ->
@@ -316,7 +318,8 @@ doesCommitExist ::
     PathWriter :> es,
     Process :> es,
     Reader Env :> es,
-    Terminal :> es
+    Terminal :> es,
+    Time :> es
   ) =>
   Commit ->
   RepoPath ->
@@ -338,7 +341,8 @@ runGitOut ::
   ( HasCallStack,
     Process :> es,
     Reader Env :> es,
-    Terminal :> es
+    Terminal :> es,
+    Time :> es
   ) =>
   [OsString] ->
   Eff es OsString
@@ -348,7 +352,8 @@ runGit ::
   ( HasCallStack,
     Process :> es,
     Reader Env :> es,
-    Terminal :> es
+    Terminal :> es,
+    Time :> es
   ) =>
   [OsString] ->
   Eff es (ExitCode, String, String)
@@ -358,7 +363,8 @@ runGit_ ::
   ( HasCallStack,
     Process :> es,
     Reader Env :> es,
-    Terminal :> es
+    Terminal :> es,
+    Time :> es
   ) =>
   [OsString] ->
   Eff es ()
@@ -381,7 +387,8 @@ runProcOut ::
   ( HasCallStack,
     Process :> es,
     Reader Env :> es,
-    Terminal :> es
+    Terminal :> es,
+    Time :> es
   ) =>
   OsString ->
   [OsString] ->
@@ -408,7 +415,8 @@ runProc ::
   ( HasCallStack,
     Process :> es,
     Reader Env :> es,
-    Terminal :> es
+    Terminal :> es,
+    Time :> es
   ) =>
   OsString ->
   [OsString] ->

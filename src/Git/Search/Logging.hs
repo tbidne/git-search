@@ -20,7 +20,8 @@ import Git.Search.Prelude
 logDebug ::
   ( HasCallStack,
     Reader Env :> es,
-    Terminal :> es
+    Terminal :> es,
+    Time :> es
   ) =>
   String ->
   Eff es ()
@@ -29,7 +30,8 @@ logDebug = logWithLevel LogLevelDebug
 logInfo ::
   ( HasCallStack,
     Reader Env :> es,
-    Terminal :> es
+    Terminal :> es,
+    Time :> es
   ) =>
   String ->
   Eff es ()
@@ -38,7 +40,8 @@ logInfo = logWithLevel LogLevelInfo
 logCommand ::
   ( HasCallStack,
     Reader Env :> es,
-    Terminal :> es
+    Terminal :> es,
+    Time :> es
   ) =>
   String ->
   Eff es ()
@@ -47,7 +50,8 @@ logCommand = logWithLevel LogLevelCommand
 logWarn ::
   ( HasCallStack,
     Reader Env :> es,
-    Terminal :> es
+    Terminal :> es,
+    Time :> es
   ) =>
   String ->
   Eff es ()
@@ -67,7 +71,8 @@ logSuccess t = do
 logWithLevel ::
   ( HasCallStack,
     Reader Env :> es,
-    Terminal :> es
+    Terminal :> es,
+    Time :> es
   ) =>
   LogLevel ->
   String ->
@@ -78,4 +83,4 @@ logWithLevel logLvl t = do
     Nothing -> pure ()
     Just cfgLvl -> do
       when (cfgLvl <= logLvl) $ do
-        putStrLn $ mkLevelLog env.coreConfig.logColor logLvl t
+        putStrLn =<< mkLevelLog env.coreConfig.logColor logLvl t
