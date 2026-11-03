@@ -30,6 +30,7 @@ tests =
       testSearchCommitTomlRepoDefaults,
       testSearchCommitTomlKey1,
       testSearchCommitTomlKey2,
+      testSearchCommitTomlKey3,
       testSearchCommitTomlKeyMiss,
       testSearchCommitArgsOverridesToml,
       testSearchCommitNameReq
@@ -318,6 +319,52 @@ testSearchCommitTomlKey2 = testProp1 desc "testSearchCommitTomlKey2" $ do
           ( unsafeCommit "abcdef0",
             MkRepoPath $ homeDir <</>> [reldirPathSep|local/path2/|],
             unsafeRemoteUri "git@server2.com:org/repo_dupe"
+          )
+
+testSearchCommitTomlKey3 :: TestTree
+testSearchCommitTomlKey3 = testProp1 desc "testSearchCommitTomlKey3" $ do
+  (env, cmd) <- liftIO $ runEnvConfig args
+
+  expectedEnv === env
+  expectedCmd === cmd
+  where
+    desc = "Toml config with key 3"
+
+    args =
+      [ "--name",
+        "repo3",
+        "search-commit",
+        "abcdef0"
+      ]
+
+    expectedEnv =
+      MkEnv
+        { coreConfig =
+            MkConfig
+              { auth = Nothing,
+                clean = True,
+                logColor = False,
+                logLevel = Just LogLevelDebug,
+                repo =
+                  MkRepoConfig
+                    { branches = unsafeOsStrs ["*master3"],
+                      domain = (),
+                      key = (),
+                      name = (),
+                      path = (),
+                      protocol = (),
+                      remoteName = Just $ unsafeRemoteName "upstream3"
+                    }
+              }
+        }
+
+    expectedCmd :: Command ConfigPhaseEnv
+    expectedCmd =
+      SearchCommit
+        $ MkSearchCommitParams
+          ( unsafeCommit "abcdef0",
+            MkRepoPath $ root <</>> [reldirPathSep|.cache/git-search/repo3/|],
+            unsafeRemoteUri "git@server3.com:org/repo_dupe"
           )
 
 testSearchCommitTomlKeyMiss :: TestTree

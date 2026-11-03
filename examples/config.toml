@@ -46,17 +46,35 @@ name = 'nixos/nixpkgs'
 #
 # Therefore, users who do not need multiple entries with the same 'name' can
 # ignore 'key' entirely, but it is there for those who need it.
+#
+# Note that 'key' must be unique and entries with the same 'name' must use
+# 'key'.
 key = 'nix'
 # Mandatory repo name.
 name = 'nixos/nixpkgs'
 
-# Map of names to branch filters.
+# Optional map of names to branch filters.
 branches = [ '*master', '*unstable*' ]
 
-# Domain to use.
+# Optional domain to use.
 domain = 'github.com'
 
-# https or ssh.
+# Optional explicit file-system path to use. This is useful for when the repo
+# already exists on our file-system and we want to save space by not
+# duplicating it in the cache. Otherwise the derived cache path is one of:
+#
+#   <xdg_cache>/<key>
+#   <xdg_cache>/<name>
+#
+# e.g.
+#
+#   ~/.cache/git-search/nix
+#   ~/.cache/git-search/nixos/nixpkgs
+#
+# depending on if 'key' exists.
+#path = '/home/dev/nix'
+
+# Optional https or ssh.
 protocol = 'https'
 
 [[repo-map]]

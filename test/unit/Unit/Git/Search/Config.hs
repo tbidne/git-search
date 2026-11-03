@@ -13,12 +13,14 @@ tests =
   testGroup
     "Git.Search.Config"
     [ testGetRepoPathNoPath,
-      testGetRepoPathWithPath
+      testGetRepoPathNoPathWithKey,
+      testGetRepoPathWithPath,
+      testGetRepoPathWithPathWithKey
     ]
 
 testGetRepoPathNoPath :: TestTree
 testGetRepoPathNoPath = testCase desc $ do
-  r <- runGetRepoPath name Nothing
+  r <- runGetRepoPath name Nothing Nothing
   expected @=? r
   where
     desc = "Makes repo path without path"
@@ -27,9 +29,20 @@ testGetRepoPathNoPath = testCase desc $ do
 
     expected = MkRepoPath $ root <</>> [reldirPathSep|.cache/git-search/org/repo|]
 
+testGetRepoPathNoPathWithKey :: TestTree
+testGetRepoPathNoPathWithKey = testCase desc $ do
+  r <- runGetRepoPath name (Just [osstr|some_key|]) Nothing
+  expected @=? r
+  where
+    desc = "Makes repo path without path, with key"
+
+    name = MkRepoName [osstr|org/repo|]
+
+    expected = MkRepoPath $ root <</>> [reldirPathSep|.cache/git-search/some_key|]
+
 testGetRepoPathWithPath :: TestTree
 testGetRepoPathWithPath = testCase desc $ do
-  r <- runGetRepoPath name (Just path)
+  r <- runGetRepoPath name Nothing (Just path)
   expected @=? r
   where
     desc = "Makes repo path with path"
@@ -39,12 +52,24 @@ testGetRepoPathWithPath = testCase desc $ do
 
     expected = MkRepoPath $ root <</>> [reldirPathSep|home/dev/my/repo2|]
 
-runGetRepoPath :: RepoName -> Maybe OsPath -> IO RepoPath
-runGetRepoPath name path = do
+testGetRepoPathWithPathWithKey :: TestTree
+testGetRepoPathWithPathWithKey = testCase desc $ do
+  r <- runGetRepoPath name (Just [osstr|some_key|]) (Just path)
+  expected @=? r
+  where
+    desc = "Makes repo path with path, with key"
+
+    name = MkRepoName [osstr|org/repo|]
+    path = [ospPathSep|~/dev/my/repo2|]
+
+    expected = MkRepoPath $ root <</>> [reldirPathSep|home/dev/my/repo2|]
+
+runGetRepoPath :: RepoName -> Maybe OsString -> Maybe OsPath -> IO RepoPath
+runGetRepoPath name mKey path = do
   runEff
     . runPR
     . runPW
-    $ Config.getRepoPath name path
+    $ Config.getRepoPath name mKey path
 
 runPR :: Eff (PathReader : es) a -> Eff es a
 runPR = interpret_ $ \case

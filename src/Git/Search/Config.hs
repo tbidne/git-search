@@ -34,7 +34,7 @@ import Git.Search.Config.Data
     SearchCommitParams (MkSearchCommitParams),
     SearchPullRequestParams (MkSearchPullRequestParams),
   )
-import Git.Search.Config.Merged (MergedConfig (coreConfig), mergeConfig)
+import Git.Search.Config.Merged (MergedConfig (coreConfig, key), mergeConfig)
 import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseArgs2, ConfigPhaseEnv))
 import Git.Search.Config.Toml (Toml)
 import Git.Search.Data
@@ -96,7 +96,7 @@ toEnv args mToml = do
         Just repoName -> do
           -- NOTE: Ignoring merged.coreConfig.repo.path as it is irrelevant
           -- for deleting the cache.
-          repoPath <- getRepoPath repoName Nothing
+          repoPath <- getRepoPath repoName merged.key Nothing
           pure $ DeleteCache (DeleteCacheLocal repoPath)
 
     mkSearchCommit merged commit = do
@@ -113,7 +113,7 @@ toEnv args mToml = do
 
           repoSrc = MkRepoRemoteUri src
 
-      repoPath <- getRepoPath repoName merged.coreConfig.repo.path
+      repoPath <- getRepoPath repoName merged.key merged.coreConfig.repo.path
 
       pure $ SearchCommit $ MkSearchCommitParams (commit, repoPath, repoSrc)
 
@@ -137,9 +137,39 @@ toEnv args mToml = do
 
           repoSrc = MkRepoRemoteUri src
 
-      repoPath <- getRepoPath repoName merged.coreConfig.repo.path
+      repoPath <- getRepoPath repoName merged.key merged.coreConfig.repo.path
 
       pure $ SearchPullRequest $ MkSearchPullRequestParams (prNum, repoPath, repoSrc, repoName)
+
+-- NOTE: [Repo Path Duplicates]
+--
+-- The user has the option to supply a file-system path to use for the repo
+-- clone, either on the CLI or the toml. Otherwise we derive the path
+--
+--   <cache>/<name>
+--
+-- e.g.
+--
+-- ~/.cache/git-search/nixos/nixpkgs
+--
+-- In general, it is up to the user to anticipate collisions, and we do
+-- not do any sort of validation on whether an extant repo corresponds
+-- to the one we are trying to clone/fetch.
+--
+-- That said, because the repo-map supports identically named repos, we will
+-- collide without explicit repo-map.paths, hence we can improve the situation.
+--
+-- First, we document that path exists, and explain why the user might want
+-- to set it.
+--
+-- Second, for repo-map entries that have a 'key' (hence might collide),
+-- we instead derive
+--
+--   <cache>/<key>
+--
+-- e.g.
+--
+-- ~/.cache/git-search/user-key
 
 -- | Returns the file-system path to use for the repository clone.
 -- If we are given an explicit path to use, use it. Otherwise, derived
@@ -151,15 +181,20 @@ getRepoPath ::
   ) =>
   -- | Repo name.
   RepoName ->
+  -- | Toml repo-map key field.
+  Maybe OsString ->
   -- | Config repo path, on the file-system.
   Maybe OsPath ->
   Eff es RepoPath
-getRepoPath (MkRepoName name) Nothing = do
+getRepoPath (MkRepoName name) mKey Nothing = do
   -- No config repo path: derived path is cache/<name>.
   root <- getCacheRoot
-  pathRel <- FS.Path.parseRelDir name
+  -- If the toml repo-map.key exists, use it instead, as it must be unique.
+  -- We previously combined them i.e. 'maybe name (</> name) mKey',
+  -- but this is unnecessary verbosity, as keys are unique.
+  pathRel <- FS.Path.parseRelDir $ fromMaybe name mKey
   pure $ MkRepoPath $ root <</>> pathRel
-getRepoPath _ (Just rawPath) = do
+getRepoPath _ _ (Just rawPath) = do
   -- Repo path p: Use it.
   path <- PR.expandTilde rawPath
   MkRepoPath <$> FS.Path.parseAbsDir path

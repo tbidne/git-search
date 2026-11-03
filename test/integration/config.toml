@@ -38,6 +38,14 @@ path = '~/local/path2'
 protocol = 'ssh'
 remote = 'upstream2'
 
+[[repo-map]]
+key = 'repo3'
+name = 'org/repo_dupe'
+branches = [ '*master3' ]
+domain = 'server3.com'
+protocol = 'ssh'
+remote = 'upstream3'
+
 [logging]
 log-color = 'off'
 log-level = 'debug'
