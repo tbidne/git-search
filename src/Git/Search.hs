@@ -86,13 +86,14 @@ searchCommit ::
     Time :> es
   ) =>
   SearchCommitParams ->
-  Eff es [Text]
+  Eff es (List Text)
 searchCommit params = do
+  Logging.logDebug $ "Clone destination: " <> repoPathStr
+
   if params ^. #shouldClone
     then cloneRepo repoPath repoSrc
-    else do
-      Logging.logDebug $ "Clone destination: " <> repoPathStr
-      Logging.logInfo $ "Skipping redundant clone/fetch: " <> repoSrcStr
+    else Logging.logInfo $ "Skipping clone/fetch: " <> repoSrcStr
+
   findBranches (params ^. #commit) repoPath
   where
     repoPath = params ^. #repoPath
@@ -114,7 +115,7 @@ searchPullRequest ::
     Time :> es
   ) =>
   SearchPullRequestParams ->
-  Eff es [Text]
+  Eff es (List Text)
 searchPullRequest params = do
   commit <- prToCommit (params ^. #prNum) (params ^. #repoName)
   searchCommit
@@ -230,8 +231,6 @@ cloneRepo ::
 cloneRepo repoPath repoSrc = do
   env <- ask @Env
 
-  Logging.logDebug $ "Clone destination: " <> repoPathStr
-
   exists <- PR.doesDirectoryExist repoPathOsP
 
   if exists
@@ -288,7 +287,6 @@ cloneRepo repoPath repoSrc = do
       ]
 
     repoPathOsP = toOsPath repoPath.unRepoPath
-    repoPathStr = pack $ decodeLenient repoPathOsP
     repoSrcStr = pack $ decodeLenient repoSrc.unRepoRemoteUri
 
 findBranches ::
@@ -301,7 +299,7 @@ findBranches ::
   ) =>
   Commit ->
   RepoPath ->
-  Eff es [Text]
+  Eff es (List Text)
 findBranches commit repoPath = do
   env <- ask @Env
 
@@ -365,7 +363,7 @@ runGitOut ::
     Terminal :> es,
     Time :> es
   ) =>
-  [OsString] ->
+  List OsString ->
   Eff es OsString
 runGitOut = runProcOut [osstr|git|]
 
@@ -376,7 +374,7 @@ runGit ::
     Terminal :> es,
     Time :> es
   ) =>
-  [OsString] ->
+  List OsString ->
   Eff es (ExitCode, String, String)
 runGit = runProc [osstr|git|]
 
@@ -387,7 +385,7 @@ runGit_ ::
     Terminal :> es,
     Time :> es
   ) =>
-  [OsString] ->
+  List OsString ->
   Eff es ()
 runGit_ args = do
   (ec, _, err) <- runGit args
@@ -412,7 +410,7 @@ runProcOut ::
     Time :> es
   ) =>
   OsString ->
-  [OsString] ->
+  List OsString ->
   Eff es OsString
 runProcOut exe args = do
   let exeStr = decodeLenient exe
@@ -440,7 +438,7 @@ runProc ::
     Time :> es
   ) =>
   OsString ->
-  [OsString] ->
+  List OsString ->
   Eff es (ExitCode, String, String)
 runProc exe args = do
   exeStr <- decodeThrowM exe

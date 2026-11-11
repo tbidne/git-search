@@ -120,7 +120,7 @@ runSearch = withHiddenInput $ do
       x ->
       (Set RepoProv, x)
     handleCloneDupes foundRepos params =
-      let repoParams = (view #repoPath params, params ^. #repoSrc)
+      let repoParams = (params ^. #repoPath, params ^. #repoSrc)
        in if Set.member repoParams foundRepos
             -- 1. We found a duplicate. Set the command's clone to false.
             then (foundRepos, set' #shouldClone False params)

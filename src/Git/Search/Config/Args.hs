@@ -249,7 +249,7 @@ logLevelParser =
 
 repoParser ::
   Parser
-    ( Maybe (WithDisabled [OsString]),
+    ( Maybe (WithDisabled (List OsString)),
       Maybe (WithDisabled Domain),
       Maybe (WithDisabled RepoName),
       Maybe (WithDisabled OsString),
@@ -266,7 +266,7 @@ repoParser =
     <*> protocolParser
     <*> remoteNameParser
 
-branchesParser :: Parser (Maybe (WithDisabled [OsString]))
+branchesParser :: Parser (Maybe (WithDisabled (List OsString)))
 branchesParser =
   OA.optional
     $ OA.option

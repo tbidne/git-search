@@ -78,21 +78,21 @@ testProp1 testName propName =
     . withTests 1
     . property
 
-runEnvNoConfigMany :: [String] -> IO [(Env, Command ConfigPhaseEnv)]
+runEnvNoConfigMany :: List String -> IO [(Env, Command ConfigPhaseEnv)]
 runEnvNoConfigMany = runEnv . (\as -> "--config" : "off" : as)
 
-runEnvNoConfig :: [String] -> IO (Env, Command ConfigPhaseEnv)
+runEnvNoConfig :: List String -> IO (Env, Command ConfigPhaseEnv)
 runEnvNoConfig = runEnvNoConfigMany >=> oneOrDie
 
-runEnvConfigMany :: [String] -> IO [(Env, Command ConfigPhaseEnv)]
+runEnvConfigMany :: List String -> IO [(Env, Command ConfigPhaseEnv)]
 runEnvConfigMany = runEnv . (\as -> "--config" : cfg : as)
   where
     cfg = unsafeDecode [ospPathSep|test/integration/config.toml|]
 
-runEnvConfig :: [String] -> IO (Env, Command ConfigPhaseEnv)
+runEnvConfig :: List String -> IO (Env, Command ConfigPhaseEnv)
 runEnvConfig = runEnvConfigMany >=> oneOrDie
 
-oneOrDie :: (Show a) => [a] -> IO a
+oneOrDie :: (Show a) => List a -> IO a
 oneOrDie [x] = pure x
 oneOrDie [] = throwString "Expected one element, received none"
 oneOrDie xs@(_ : _ : _) = throwString $ "Expected one element, received > 1: " ++ show xs
@@ -102,7 +102,7 @@ oneOrDie xs@(_ : _ : _) = throwString $ "Expected one element, received > 1: " +
 --   ghc-options:    -threaded -with-rtsopts=-N
 --
 -- Alternatively, we could use tasty to run sequentially.
-runEnv :: [String] -> IO [(Env, Command ConfigPhaseEnv)]
+runEnv :: List String -> IO [(Env, Command ConfigPhaseEnv)]
 runEnv args =
   fmap (fmap (\(env, cmd, _) -> (env, cmd)) . F.toList)
     . Env.withArgs args
@@ -145,7 +145,7 @@ runPW = interpret_ $ \case
   PW.CreateDirectoryIfMissing _ _ -> pure ()
   other -> error $ "runPW.unimplemented: " ++ showEffectCons other
 
-unsafeOsStrs :: [String] -> [OsString]
+unsafeOsStrs :: List String -> List OsString
 unsafeOsStrs = fmap unsafeEncode
 
 unsafeCommit :: String -> Commit

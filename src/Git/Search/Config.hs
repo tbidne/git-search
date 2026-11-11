@@ -129,7 +129,7 @@ toEnv args mToml = do
       repoPath <- getRepoPath repoName merged.key merged.coreConfig.repo.path
 
       pure
-        $ SearchCommit
+        . SearchCommit
         $ MkSearchCommitParams
           { commit,
             repoPath,
@@ -160,7 +160,7 @@ toEnv args mToml = do
       repoPath <- getRepoPath repoName merged.key merged.coreConfig.repo.path
 
       pure
-        $ SearchPullRequest
+        . SearchPullRequest
         $ MkSearchPullRequestParams
           { prNum,
             repoPath,

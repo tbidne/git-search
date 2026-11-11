@@ -60,11 +60,11 @@ import Git.Search.Prelude
 
 type BranchesF :: ConfigPhase -> Type
 type family BranchesF p where
-  BranchesF ConfigPhaseArgs1 = Maybe (WithDisabled [OsString])
-  BranchesF ConfigPhaseToml = [OsString]
+  BranchesF ConfigPhaseArgs1 = Maybe (WithDisabled (List OsString))
+  BranchesF ConfigPhaseToml = List OsString
   BranchesF ConfigPhaseTomlRepoDefaults = ()
-  BranchesF ConfigPhaseMerged = [OsString]
-  BranchesF ConfigPhaseEnv = [OsString]
+  BranchesF ConfigPhaseMerged = List OsString
+  BranchesF ConfigPhaseEnv = List OsString
 
 type DomainF :: ConfigPhase -> Type
 type family DomainF p where

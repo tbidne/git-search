@@ -567,12 +567,12 @@ testConfigOff = testProp1 desc "testConfigOff" $ do
 
     e = set' #config (Just Disabled) defArgs
 
-testGetArgs :: Args ConfigPhaseArgs1 -> [String] -> PropertyT IO ()
+testGetArgs :: Args ConfigPhaseArgs1 -> List String -> PropertyT IO ()
 testGetArgs expected args = do
   result <- liftIO $ runGetArgs args
   expected === result
 
-runGetArgs :: [String] -> IO (Args ConfigPhaseArgs1)
+runGetArgs :: List String -> IO (Args ConfigPhaseArgs1)
 runGetArgs args =
   Env.withArgs args
     . runEff

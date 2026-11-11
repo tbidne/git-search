@@ -157,7 +157,7 @@ testNixpkgsPullRequest mAuth = testCase desc $ do
       ]
 
 data Args = MkArgs
-  { cmd :: Maybe [String],
+  { cmd :: Maybe (List String),
     cfg :: Maybe OsString,
     name :: Maybe String
   }
@@ -177,7 +177,7 @@ argsCfg =
       name = Just "nix"
     }
 
-argsToStrs :: Args -> [String]
+argsToStrs :: Args -> List String
 argsToStrs args =
   cfgArgs
     ++ otherArgs
@@ -206,7 +206,7 @@ argsToStrs args =
         "debug"
       ]
 
-fullExpected :: [Text]
+fullExpected :: List Text
 fullExpected =
   [ "- origin/haskell-updates",
     "- origin/master",
@@ -218,7 +218,7 @@ fullExpected =
     "- origin/staging-nixos"
   ]
 
-assertResults :: [Text] -> Set Text -> IO ()
+assertResults :: List Text -> Set Text -> IO ()
 assertResults expected rs = for_ expected $ \e -> do
   let isMember = Set.member e rs
       err =
@@ -250,7 +250,7 @@ assertResultsN expected rs = for_ expected $ \(eTxt, eN) -> do
           ]
   assertEqual err eN actualN
 
-mkResultsMap :: [Text] -> Map Text Int
+mkResultsMap :: List Text -> Map Text Int
 mkResultsMap = L.foldl' go Map.empty
   where
     go mp t = Map.alter k t mp
@@ -259,7 +259,7 @@ mkResultsMap = L.foldl' go Map.empty
       Nothing -> Just 1
       Just n -> let !n' = n + 1 in Just n'
 
-runSearch :: [String] -> IO [Text]
+runSearch :: List String -> IO (List Text)
 runSearch args = do
   logsRef <- IORef.newIORef []
 
@@ -298,7 +298,7 @@ runSearch args = do
 
 runTerm ::
   (IOE :> es) =>
-  IORef [Text] ->
+  IORef (List Text) ->
   Eff (Terminal : es) a ->
   Eff es a
 runTerm logsRef = interpret_ $ \case

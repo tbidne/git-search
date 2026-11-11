@@ -172,9 +172,9 @@ mergeMaybe (Just Disabled) _ = Nothing
 mergeMaybe a b = WD.toMaybe a <|> b
 
 mergeBranches ::
-  Maybe (WithDisabled [OsString]) ->
+  Maybe (WithDisabled (List OsString)) ->
   Maybe (RepoConfig ConfigPhaseToml) ->
-  [OsString]
+  List OsString
 mergeBranches (Just Disabled) _ = []
 mergeBranches (Just (With branches)) _ = branches
 mergeBranches Nothing mRepo = maybe [] (.branches) mRepo
