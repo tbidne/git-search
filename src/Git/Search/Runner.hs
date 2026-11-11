@@ -11,6 +11,7 @@ where
 
 import Control.Exception.Utils qualified as Ex.Utils
 import Data.List qualified as L
+import Data.Sequence qualified as Seq
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Tuple (uncurry)
@@ -66,8 +67,14 @@ runSearch = withHiddenInput $ do
 
   let envCmdsFinal = stripCloneDupes envCmds
       numCmds = length envCmdsFinal
+
+      envCmdsFinalIdx =
+        Seq.zip
+          (Seq.fromList [1, 2 .. numCmds])
+          envCmdsFinal
+
       cmdAction =
-        for_ (L.zip [1, 2 ..] envCmdsFinal) $ \(idx, (env, cmd, mLog)) -> do
+        for_ envCmdsFinalIdx $ \(idx, (env, cmd, mLog)) -> do
           runReader env $ do
             for_ mLog (uncurry Logging.logWithLevel)
             runCmd (numCmds == idx) cmd
@@ -85,22 +92,22 @@ runSearch = withHiddenInput $ do
     -- Remove duplicate clones i.e. if we have multiple commands
     -- (search-defaults) that will perform the same clone step, then we
     -- should only perform it once, to save work.
-    stripCloneDupes :: [EnvCmd] -> [EnvCmd]
-    stripCloneDupes = L.reverse . fst . L.foldl' stripCloneDupe ([], Set.empty)
+    stripCloneDupes :: Seq EnvCmd -> Seq EnvCmd
+    stripCloneDupes = fst . L.foldl' stripCloneDupe (Seq.empty, Set.empty)
 
     -- A "duplicate clone" is a SearchCommit/SearchPullRequest command that
     -- has the same RepoPath (local file-system path) and RepoRemotUri
     -- (remote source). Note that no consideration is given to different
     -- remotes sharing the same local path i.e. you are on your own.
-    stripCloneDupe :: ([EnvCmd], Set RepoProv) -> EnvCmd -> ([EnvCmd], Set RepoProv)
+    stripCloneDupe :: (Seq EnvCmd, Set RepoProv) -> EnvCmd -> (Seq EnvCmd, Set RepoProv)
     stripCloneDupe (envCmds, foundRepos) envCmd@(env, cmd, mLog) = case cmd of
-      DeleteCache {} -> (envCmd : envCmds, foundRepos)
+      DeleteCache {} -> (envCmds :|> envCmd, foundRepos)
       SearchCommit params ->
         let (foundRepos', params') = handleCloneDupes foundRepos params
-         in ((env, SearchCommit params', mLog) : envCmds, foundRepos')
+         in (envCmds :|> (env, SearchCommit params', mLog), foundRepos')
       SearchPullRequest params ->
         let (foundRepos', params') = handleCloneDupes foundRepos params
-         in ((env, SearchPullRequest params', mLog) : envCmds, foundRepos')
+         in (envCmds :|> (env, SearchPullRequest params', mLog), foundRepos')
 
     -- Check the command params for a duplicate repo.
     handleCloneDupes ::
@@ -154,7 +161,7 @@ getEnv ::
     PathReader :> es,
     PathWriter :> es
   ) =>
-  Eff es [EnvCmd]
+  Eff es (Seq EnvCmd)
 getEnv = do
   args <- Git.Search.Config.Args.getArgs
   mToml <- getToml args
@@ -190,7 +197,7 @@ getEnv = do
   --        consolidated to remove redundancy).
   --   - 3: Final time here, when running the actual command.
   let cmd1 = args ^. #command
-      searchDefaults = fromMaybe [] (mToml ^? (_Just % #searchDefaults))
+      searchDefaults = fromMaybe Seq.empty (mToml ^? (_Just % #searchDefaults))
 
   case cmd1 of
     DeleteCache params ->
@@ -243,7 +250,7 @@ getEnv = do
     -- See NOTE: [SearchDefault name]
     setName = set' (#coreConfig % #repo % #name) . (Just . With)
 
-    liftOne (env, cmd) = [(env, cmd, Nothing)]
+    liftOne (env, cmd) = Seq.singleton (env, cmd, Nothing)
 
 getToml ::
   ( HasCallStack,

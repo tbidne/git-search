@@ -40,6 +40,7 @@ module Integration.Prelude
   )
 where
 
+import Data.Foldable qualified as F
 import Data.Text qualified as T
 import Effectful.FileSystem.PathReader.Dynamic qualified as PR
 import Effectful.FileSystem.PathWriter.Dynamic qualified as PW
@@ -103,8 +104,7 @@ oneOrDie xs@(_ : _ : _) = throwString $ "Expected one element, received > 1: " +
 -- Alternatively, we could use tasty to run sequentially.
 runEnv :: [String] -> IO [(Env, Command ConfigPhaseEnv)]
 runEnv args =
-  (fmap . fmap)
-    (\(env, cmd, _) -> (env, cmd))
+  fmap (fmap (\(env, cmd, _) -> (env, cmd)) . F.toList)
     . Env.withArgs args
     . runner
     $ Runner.getEnv

@@ -8,6 +8,7 @@ where
 
 import Data.List qualified as L
 import Data.Map.Strict qualified as Map
+import Data.Sequence qualified as Seq
 import Git.Search.Config.Data
   ( Config (MkConfig, auth, clean, logColor, logLevel, repo),
     RepoConfig
@@ -35,7 +36,7 @@ import TOML (Decoder, getArrayOf)
 data Toml = MkToml
   { coreConfig :: Config ConfigPhaseToml,
     repoDefaults :: RepoConfig ConfigPhaseTomlRepoDefaults,
-    searchDefaults :: [(Either Commit Word32, RepoName, Maybe Text)]
+    searchDefaults :: Seq (Either Commit Word32, RepoName, Maybe Text)
   }
 
 instance DecodeTOML Toml where
@@ -100,9 +101,9 @@ instance DecodeTOML Toml where
                 remoteName = ()
               }
 
-      decodeSearchDefaults :: Decoder [(Either Commit Word32, RepoName, Maybe Text)]
+      decodeSearchDefaults :: Decoder (Seq (Either Commit Word32, RepoName, Maybe Text))
       decodeSearchDefaults =
-        fmap (fromMaybe [])
+        fmap (maybe Seq.empty Seq.fromList)
           . flip getFieldOptWith "search-defaults"
           $ getArrayOf decodeSearchDefault
 
