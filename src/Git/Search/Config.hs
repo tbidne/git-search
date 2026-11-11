@@ -31,8 +31,21 @@ import Git.Search.Config.Data
         protocol,
         remoteName
       ),
-    SearchCommitParams (MkSearchCommitParams),
-    SearchPullRequestParams (MkSearchPullRequestParams),
+    SearchCommitParams
+      ( MkSearchCommitParams,
+        commit,
+        repoPath,
+        repoSrc,
+        shouldClone
+      ),
+    SearchPullRequestParams
+      ( MkSearchPullRequestParams,
+        prNum,
+        repoName,
+        repoPath,
+        repoSrc,
+        shouldClone
+      ),
   )
 import Git.Search.Config.Merged (MergedConfig (coreConfig, key), mergeConfig)
 import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseArgs2, ConfigPhaseEnv))
@@ -115,7 +128,14 @@ toEnv args mToml = do
 
       repoPath <- getRepoPath repoName merged.key merged.coreConfig.repo.path
 
-      pure $ SearchCommit $ MkSearchCommitParams (commit, repoPath, repoSrc)
+      pure
+        $ SearchCommit
+        $ MkSearchCommitParams
+          { commit,
+            repoPath,
+            repoSrc,
+            shouldClone = True
+          }
 
     mkSearchPullRequest merged prNum = do
       repoName@(MkRepoName name) <- getName "search-pr" merged
@@ -139,7 +159,15 @@ toEnv args mToml = do
 
       repoPath <- getRepoPath repoName merged.key merged.coreConfig.repo.path
 
-      pure $ SearchPullRequest $ MkSearchPullRequestParams (prNum, repoPath, repoSrc, repoName)
+      pure
+        $ SearchPullRequest
+        $ MkSearchPullRequestParams
+          { prNum,
+            repoPath,
+            repoSrc,
+            repoName,
+            shouldClone = True
+          }
 
 -- NOTE: [Repo Path Duplicates]
 --

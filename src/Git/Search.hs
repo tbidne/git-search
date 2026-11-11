@@ -27,8 +27,14 @@ import Git.Search.Config.Data
   ( Config (auth, clean, repo),
     DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
     RepoConfig (branches, remoteName),
-    SearchCommitParams (MkSearchCommitParams),
-    SearchPullRequestParams (MkSearchPullRequestParams),
+    SearchCommitParams
+      ( MkSearchCommitParams,
+        commit,
+        repoPath,
+        repoSrc,
+        shouldClone
+      ),
+    SearchPullRequestParams,
   )
 import Git.Search.Data
   ( Commit (MkCommit, unCommit),
@@ -82,10 +88,20 @@ searchCommit ::
   SearchCommitParams ->
   Eff es [Text]
 searchCommit params = do
-  cloneRepo repoPath repoSrc
-  findBranches commit repoPath
+  if params ^. #shouldClone
+    then cloneRepo repoPath repoSrc
+    else do
+      Logging.logDebug $ "Skipping redundant clone/fetch: " <> repoPathStr
+      Logging.logInfo $ "Searching " <> repoSrcStr
+  findBranches (params ^. #commit) repoPath
   where
-    MkSearchCommitParams (commit, repoPath, repoSrc) = params
+    repoPath = params ^. #repoPath
+    repoSrc = params ^. #repoSrc
+
+    repoPathOsP = toOsPath repoPath.unRepoPath
+    repoPathStr = pack $ decodeLenient repoPathOsP
+
+    repoSrcStr = pack $ decodeLenient repoSrc.unRepoRemoteUri
 
 searchPullRequest ::
   ( HasCallStack,
@@ -100,10 +116,14 @@ searchPullRequest ::
   SearchPullRequestParams ->
   Eff es [Text]
 searchPullRequest params = do
-  commit <- prToCommit prNum repoName
-  searchCommit $ MkSearchCommitParams (commit, repoPath, repoSrc)
-  where
-    MkSearchPullRequestParams (prNum, repoPath, repoSrc, repoName) = params
+  commit <- prToCommit (params ^. #prNum) (params ^. #repoName)
+  searchCommit
+    $ MkSearchCommitParams
+      { commit,
+        repoPath = params ^. #repoPath,
+        repoSrc = params ^. #repoSrc,
+        shouldClone = params ^. #shouldClone
+      }
 
 prToCommit ::
   ( HasCallStack,

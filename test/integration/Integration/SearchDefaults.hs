@@ -15,8 +15,21 @@ import Git.Search.Config.Data
         protocol,
         remoteName
       ),
-    SearchCommitParams (MkSearchCommitParams),
-    SearchPullRequestParams (MkSearchPullRequestParams),
+    SearchCommitParams
+      ( MkSearchCommitParams,
+        commit,
+        repoPath,
+        repoSrc,
+        shouldClone
+      ),
+    SearchPullRequestParams
+      ( MkSearchPullRequestParams,
+        prNum,
+        repoName,
+        repoPath,
+        repoSrc,
+        shouldClone
+      ),
   )
 import Git.Search.Logging.Data (LogLevel (LogLevelDebug))
 import Integration.Prelude
@@ -74,10 +87,11 @@ testSearchDefaults = testProp1 desc "testSearchDefaults" $ do
     expectedCmd1 =
       SearchCommit
         $ MkSearchCommitParams
-          ( unsafeCommit "c190319",
-            MkRepoPath $ root <</>> [reldirPathSep|home/local/path/|],
-            unsafeRemoteUri "git@server.com:org/repo"
-          )
+          { commit = unsafeCommit "c190319",
+            repoPath = MkRepoPath $ root <</>> [reldirPathSep|home/local/path/|],
+            repoSrc = unsafeRemoteUri "git@server.com:org/repo",
+            shouldClone = True
+          }
 
     expectedEnv2 =
       MkEnv
@@ -104,8 +118,9 @@ testSearchDefaults = testProp1 desc "testSearchDefaults" $ do
     expectedCmd2 =
       SearchPullRequest
         $ MkSearchPullRequestParams
-          ( 510883,
-            MkRepoPath $ root <</>> [reldirPathSep|.cache/git-search/org/repo2/|],
-            unsafeRemoteUri "https://github.com/org/repo2",
-            MkRepoName [osstr|org/repo2|]
-          )
+          { prNum = 510883,
+            repoPath = MkRepoPath $ root <</>> [reldirPathSep|.cache/git-search/org/repo2/|],
+            repoSrc = unsafeRemoteUri "https://github.com/org/repo2",
+            repoName = MkRepoName [osstr|org/repo2|],
+            shouldClone = True
+          }

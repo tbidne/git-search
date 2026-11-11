@@ -225,8 +225,11 @@ type family SearchCommitF p where
   SearchCommitF ConfigPhaseArgs2 = Commit
   SearchCommitF ConfigPhaseEnv = SearchCommitParams
 
-newtype SearchCommitParams = MkSearchCommitParams
-  { unSearchCommitParams :: (Commit, RepoPath, RepoRemoteUri)
+data SearchCommitParams = MkSearchCommitParams
+  { commit :: Commit,
+    repoPath :: RepoPath,
+    repoSrc :: RepoRemoteUri,
+    shouldClone :: Bool
   }
   deriving stock (Eq, Show)
 
@@ -242,8 +245,12 @@ type family SearchPullRequestF p where
   SearchPullRequestF ConfigPhaseArgs2 = Word32
   SearchPullRequestF ConfigPhaseEnv = SearchPullRequestParams
 
-newtype SearchPullRequestParams = MkSearchPullRequestParams
-  { unSearchPullRequestParams :: (Word32, RepoPath, RepoRemoteUri, RepoName)
+data SearchPullRequestParams = MkSearchPullRequestParams
+  { prNum :: Word32,
+    repoPath :: RepoPath,
+    repoSrc :: RepoRemoteUri,
+    repoName :: RepoName,
+    shouldClone :: Bool
   }
   deriving stock (Eq, Show)
 

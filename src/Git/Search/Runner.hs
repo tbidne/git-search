@@ -11,6 +11,8 @@ where
 
 import Control.Exception.Utils qualified as Ex.Utils
 import Data.List qualified as L
+import Data.Set (Set)
+import Data.Set qualified as Set
 import Data.Tuple (uncurry)
 import Effectful.Concurrent qualified as CC
 import Effectful.Concurrent.Async qualified as Async
@@ -35,9 +37,11 @@ import Git.Search.Config.Data
 import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseArgs1, ConfigPhaseEnv))
 import Git.Search.Config.Toml (Toml)
 import Git.Search.Config.WithDisabled (WithDisabled (Disabled, With))
+import Git.Search.Data (RepoPath, RepoRemoteUri)
 import Git.Search.Logging qualified as Logging
 import Git.Search.Logging.Data (LogLevel (LogLevelCommand))
 import Git.Search.Prelude
+import Optics.Core (LabelOptic')
 import System.IO qualified as IO
 import TOML qualified
 
@@ -60,9 +64,10 @@ runSearch ::
 runSearch = withHiddenInput $ do
   envCmds <- getEnv
 
-  let numCmds = length envCmds
+  let envCmdsFinal = stripCloneDupes envCmds
+      numCmds = length envCmdsFinal
       cmdAction =
-        for_ (L.zip [1, 2 ..] envCmds) $ \(idx, (env, cmd, mLog)) -> do
+        for_ (L.zip [1, 2 ..] envCmdsFinal) $ \(idx, (env, cmd, mLog)) -> do
           runReader env $ do
             for_ mLog (uncurry Logging.logWithLevel)
             runCmd (numCmds == idx) cmd
@@ -76,6 +81,45 @@ runSearch = withHiddenInput $ do
       DeleteCache cmdArgs -> Git.Search.deleteCache cmdArgs
       SearchCommit cmdArgs -> Git.Search.searchCommit cmdArgs >>= printBranches finalCmd
       SearchPullRequest cmdArgs -> Git.Search.searchPullRequest cmdArgs >>= printBranches finalCmd
+
+    -- Remove duplicate clones i.e. if we have multiple commands
+    -- (search-defaults) that will perform the same clone step, then we
+    -- should only perform it once, to save work.
+    stripCloneDupes :: [EnvCmd] -> [EnvCmd]
+    stripCloneDupes = L.reverse . fst . L.foldl' stripCloneDupe ([], Set.empty)
+
+    -- A "duplicate clone" is a SearchCommit/SearchPullRequest command that
+    -- has the same RepoPath (local file-system path) and RepoRemotUri
+    -- (remote source). Note that no consideration is given to different
+    -- remotes sharing the same local path i.e. you are on your own.
+    stripCloneDupe :: ([EnvCmd], Set RepoProv) -> EnvCmd -> ([EnvCmd], Set RepoProv)
+    stripCloneDupe (envCmds, foundRepos) envCmd@(env, cmd, mLog) = case cmd of
+      DeleteCache {} -> (envCmd : envCmds, foundRepos)
+      SearchCommit params ->
+        let (foundRepos', params') = handleCloneDupes foundRepos params
+         in ((env, SearchCommit params', mLog) : envCmds, foundRepos')
+      SearchPullRequest params ->
+        let (foundRepos', params') = handleCloneDupes foundRepos params
+         in ((env, SearchPullRequest params', mLog) : envCmds, foundRepos')
+
+    -- Check the command params for a duplicate repo.
+    handleCloneDupes ::
+      forall x.
+      ( LabelOptic' "repoPath" A_Lens x RepoPath,
+        LabelOptic' "repoSrc" A_Lens x RepoRemoteUri,
+        LabelOptic' "shouldClone" A_Lens x Bool
+      ) =>
+      Set RepoProv ->
+      x ->
+      (Set RepoProv, x)
+    handleCloneDupes foundRepos params =
+      let repoParams = (view #repoPath params, params ^. #repoSrc)
+       in if Set.member repoParams foundRepos
+            -- 1. We found a duplicate. Set the command's clone to false.
+            then (foundRepos, set' #shouldClone False params)
+            -- 2. No duplicates, proceed normally, adding the newly
+            --   found repo.
+            else (Set.insert repoParams foundRepos, params)
 
     printBranches finalCmd branches = do
       -- If this is not the final command, append a newline.
@@ -99,6 +143,10 @@ runSearch = withHiddenInput $ do
                 endLine
               ]
 
+type EnvCmd = (Env, Command ConfigPhaseEnv, Maybe (LogLevel, Text))
+
+type RepoProv = (RepoPath, RepoRemoteUri)
+
 getEnv ::
   ( FileReader :> es,
     HasCallStack,
@@ -106,7 +154,7 @@ getEnv ::
     PathReader :> es,
     PathWriter :> es
   ) =>
-  Eff es [(Env, Command ConfigPhaseEnv, Maybe (LogLevel, Text))]
+  Eff es [EnvCmd]
 getEnv = do
   args <- Git.Search.Config.Args.getArgs
   mToml <- getToml args
