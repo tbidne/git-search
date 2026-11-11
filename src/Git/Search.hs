@@ -91,8 +91,8 @@ searchCommit params = do
   if params ^. #shouldClone
     then cloneRepo repoPath repoSrc
     else do
-      Logging.logDebug $ "Skipping redundant clone/fetch: " <> repoPathStr
-      Logging.logInfo $ "Searching " <> repoSrcStr
+      Logging.logDebug $ "Clone destination: " <> repoPathStr
+      Logging.logInfo $ "Skipping redundant clone/fetch: " <> repoSrcStr
   findBranches (params ^. #commit) repoPath
   where
     repoPath = params ^. #repoPath
