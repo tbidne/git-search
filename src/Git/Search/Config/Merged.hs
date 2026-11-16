@@ -1,4 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Git.Search.Config.Merged
   ( MergedConfig (..),
@@ -7,7 +9,7 @@ module Git.Search.Config.Merged
 where
 
 import Data.Map.Strict qualified as Map
-import Git.Search.Config.Args (Args (coreConfig))
+import Git.Search.Config.Args (Args)
 import Git.Search.Config.Data
   ( Config (MkConfig, auth, clean, logColor, logLevel, repo),
     RepoConfig
@@ -29,13 +31,13 @@ import Git.Search.Config.Phase
         ConfigPhaseToml
       ),
   )
-import Git.Search.Config.Toml (Toml (coreConfig))
+import Git.Search.Config.Toml (Toml)
 import Git.Search.Config.WithDisabled (WithDisabled (Disabled, With))
 import Git.Search.Config.WithDisabled qualified as WD
 import Git.Search.Data
   ( Domain (MkDomain),
     Protocol (ProtocolHttps),
-    RepoName (unRepoName),
+    RepoName,
   )
 import Git.Search.Prelude
 
@@ -46,6 +48,8 @@ data MergedConfig = MkMergedConfig
     -- This is used for the file-system path.
     key :: Maybe OsString
   }
+
+makeFieldLabelsNoPrefix ''MergedConfig
 
 mergeConfig ::
   Args ConfigPhaseArgs2 ->
@@ -60,99 +64,101 @@ mergeConfig args mToml =
     -- initName is either the CLI name or toml default name.
     initName =
       mergeMaybe
-        args.coreConfig.repo.name
+        (args ^. #coreConfig % #repo % #name)
         (mToml ^? _Just % #repoDefaults % #name % _Just)
 
     (name, mRepo, key) = case initName of
       Nothing -> (Nothing, Nothing, Nothing)
       Just n -> case (mToml ^? _Just % #coreConfig % #repo) >>= repoLookup n of
         Nothing -> (Just n, Nothing, Nothing)
-        Just r -> (Just r.name, Just r, r.key)
+        Just r -> (Just $ r ^. #name, Just r, r ^. #key)
 
     coreConfig = case mToml of
       Nothing ->
         MkConfig
-          { auth = args.coreConfig.auth,
-            clean = mergeBoolFalse args.coreConfig.clean Nothing,
-            logColor = mergeBoolTrue args.coreConfig.logColor Nothing,
+          { auth = args ^. #coreConfig % #auth,
+            clean = mergeBoolFalse (args ^. #coreConfig % #clean) Nothing,
+            logColor = mergeBoolTrue (args ^. #coreConfig % #logColor) Nothing,
             logLevel =
-              mergeMaybe args.coreConfig.logLevel Nothing,
+              mergeMaybe
+                (args ^. #coreConfig % #logLevel)
+                Nothing,
             repo =
               MkRepoConfig
                 { branches =
                     mergeBranches
-                      args.coreConfig.repo.branches
+                      (args ^. #coreConfig % #repo % #branches)
                       Nothing,
                   domain =
                     mergeWD
                       defDomain
-                      (.domain)
-                      args.coreConfig.repo.domain
+                      (view #domain)
+                      (args ^. #coreConfig % #repo % #domain)
                       Nothing,
                   key = (),
                   name,
                   path =
                     mergeWDMaybe
-                      (.path)
-                      args.coreConfig.repo.path
+                      (view #path)
+                      (args ^. #coreConfig % #repo % #path)
                       Nothing,
                   protocol =
                     mergeWD
                       defProtocol
-                      (.protocol)
-                      args.coreConfig.repo.protocol
+                      (view #protocol)
+                      (args ^. #coreConfig % #repo % #protocol)
                       Nothing,
                   remoteName =
                     mergeWDMaybe
-                      (.remoteName)
-                      args.coreConfig.repo.remoteName
+                      (view #remoteName)
+                      (args ^. #coreConfig % #repo % #remoteName)
                       Nothing
                 }
           }
       Just toml ->
         MkConfig
-          { auth = args.coreConfig.auth,
+          { auth = args ^. #coreConfig % #auth,
             clean =
               mergeBoolFalse
-                args.coreConfig.clean
-                toml.coreConfig.clean,
+                (args ^. #coreConfig % #clean)
+                (toml ^. #coreConfig % #clean),
             logColor =
               mergeBoolTrue
-                args.coreConfig.logColor
-                toml.coreConfig.logColor,
+                (args ^. #coreConfig % #logColor)
+                (toml ^. #coreConfig % #logColor),
             logLevel =
               mergeMaybe
-                args.coreConfig.logLevel
-                toml.coreConfig.logLevel,
+                (args ^. #coreConfig % #logLevel)
+                (toml ^. #coreConfig % #logLevel),
             repo =
               MkRepoConfig
                 { branches =
                     mergeBranches
-                      args.coreConfig.repo.branches
+                      (args ^. #coreConfig % #repo % #branches)
                       mRepo,
                   domain =
                     mergeWD
                       defDomain
-                      (.domain)
-                      args.coreConfig.repo.domain
+                      (view #domain)
+                      (args ^. #coreConfig % #repo % #domain)
                       mRepo,
                   key = (),
                   name,
                   path =
                     mergeWDMaybe
-                      (.path)
-                      args.coreConfig.repo.path
+                      (view #path)
+                      (args ^. #coreConfig % #repo % #path)
                       mRepo,
                   protocol =
                     mergeWD
                       defProtocol
-                      (.protocol)
-                      args.coreConfig.repo.protocol
+                      (view #protocol)
+                      (args ^. #coreConfig % #repo % #protocol)
                       mRepo,
                   remoteName =
                     mergeWDMaybe
-                      (.remoteName)
-                      args.coreConfig.repo.remoteName
+                      (view #remoteName)
+                      (args ^. #coreConfig % #repo % #remoteName)
                       mRepo
                 }
           }
@@ -177,7 +183,7 @@ mergeBranches ::
   List OsString
 mergeBranches (Just Disabled) _ = []
 mergeBranches (Just (With branches)) _ = branches
-mergeBranches Nothing mRepo = maybe [] (.branches) mRepo
+mergeBranches Nothing mRepo = maybe [] (view #branches) mRepo
 
 mergeWDMaybe ::
   (RepoConfig ConfigPhaseToml -> Maybe a) ->
@@ -212,5 +218,5 @@ repoLookup ::
   Maybe (RepoConfig ConfigPhaseToml)
 repoLookup repoName mp = lookupKey <|> lookupName
   where
-    lookupKey = Map.lookup (RepoMapKeyCustom repoName.unRepoName) mp
+    lookupKey = Map.lookup (RepoMapKeyCustom (repoName ^. #unRepoName)) mp
     lookupName = Map.lookup (RepoMapKeyName repoName) mp

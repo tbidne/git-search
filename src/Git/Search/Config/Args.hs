@@ -90,6 +90,17 @@ data Args p = MkArgs
     coreConfig :: Config ConfigPhaseArgs1
   }
 
+makeFieldLabelsNoPrefix ''Args
+
+data VersionInfo = MkVersionInfo
+  { gitCommitDate :: OsString,
+    ghc :: String,
+    gitHash :: OsString,
+    gitShortHash :: OsString
+  }
+
+makeFieldLabelsNoPrefix ''VersionInfo
+
 deriving stock instance
   ( Eq (DeleteCacheF p),
     Eq (SearchCommitF p),
@@ -482,7 +493,7 @@ versShort =
     [ "Git-search: ",
       showVersion Paths.version,
       " (",
-      decodeLenient versionInfo.gitShortHash,
+      decodeLenient (versionInfo ^. #gitShortHash),
       ")"
     ]
 
@@ -491,17 +502,10 @@ versLong =
   L.intercalate
     "\n"
     [ "Git-search: " <> showVersion Paths.version,
-      " - Git revision: " <> decodeLenient versionInfo.gitHash,
-      " - Commit date:  " <> decodeLenient versionInfo.gitCommitDate,
-      " - GHC version:  " <> versionInfo.ghc
+      " - Git revision: " <> decodeLenient (versionInfo ^. #gitHash),
+      " - Commit date:  " <> decodeLenient (versionInfo ^. #gitCommitDate),
+      " - GHC version:  " <> versionInfo ^. #ghc
     ]
-
-data VersionInfo = MkVersionInfo
-  { gitCommitDate :: OsString,
-    ghc :: String,
-    gitHash :: OsString,
-    gitShortHash :: OsString
-  }
 
 versionInfo :: VersionInfo
 versionInfo =
@@ -583,5 +587,3 @@ toChunk i other = fmap (Pretty.indent i) . Chunk.stringChunk $ other
 
 line :: Chunk Doc
 line = Chunk (Just Pretty.softline)
-
-makeFieldLabelsNoPrefix ''Args

@@ -19,11 +19,9 @@ import Effectful.FileSystem.PathReader.Dynamic qualified as PR
 import Effectful.FileSystem.PathWriter.Dynamic qualified as PW
 import Effectful.HTTP.Client.Static qualified as Eff.Http
 import Effectful.Time.Static qualified as Time
-import Git.Search.Config (Env (coreConfig))
+import Git.Search.Config (Env)
 import Git.Search.Config.Data
-  ( Config (auth, clean, repo),
-    DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
-    RepoConfig (branches, remoteName),
+  ( DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
     SearchCommitParams
       ( MkSearchCommitParams,
         commit,
@@ -34,11 +32,10 @@ import Git.Search.Config.Data
     SearchPullRequestParams,
   )
 import Git.Search.Data
-  ( Commit (MkCommit, unCommit),
-    RepoName (unRepoName),
-    RepoPath (unRepoPath),
-    RepoRemoteName (unRepoRemoteName),
-    RepoRemoteUri (unRepoRemoteUri),
+  ( Commit (MkCommit),
+    RepoName,
+    RepoPath,
+    RepoRemoteUri,
   )
 import Git.Search.Logging qualified as Logging
 import Git.Search.Prelude
@@ -58,12 +55,12 @@ deleteCache ::
   Eff es ()
 deleteCache = \case
   DeleteCacheGlobal (MkPath cacheDir) -> do
-    Logging.logDebug $ "Deleting cache: " <> pack (decodeLenient cacheDir)
+    Logging.logDebug $ "Deleting cache: " <> decodeLenientt cacheDir
 
     PW.removePathForcibly cacheDir
   DeleteCacheLocal repoPath -> do
     let repoDir = repoPathToOsP repoPath
-        repoDirStr = pack $ decodeLenient repoDir
+        repoDirStr = decodeLenientt repoDir
 
     Logging.logDebug $ "Deleting cache repo: " <> repoDirStr
 
@@ -96,10 +93,10 @@ searchCommit params = do
     repoPath = params ^. #repoPath
     repoSrc = params ^. #repoSrc
 
-    repoPathOsP = toOsPath repoPath.unRepoPath
-    repoPathStr = pack $ decodeLenient repoPathOsP
+    repoPathOsP = toOsPath $ repoPath ^. #unRepoPath
+    repoPathStr = decodeLenientt repoPathOsP
 
-    repoSrcStr = pack $ decodeLenient repoSrc.unRepoRemoteUri
+    repoSrcStr = decodeLenientt $ repoSrc ^. #unRepoRemoteUri
 
 searchPullRequest ::
   ( HasCallStack,
@@ -136,7 +133,7 @@ prToCommit ::
 prToCommit prNum repoName = do
   env <- ask @Env
 
-  authHeader <- case env.coreConfig.auth of
+  authHeader <- case env ^. #coreConfig % #auth of
     Nothing -> pure []
     Just auth -> do
       authBs <- encodeUtf8 . pack <$> decodeThrowM auth
@@ -152,19 +149,19 @@ prToCommit prNum repoName = do
       manager
       (Eff.Http.readResponseJson baseUrl)
 
-  case pr.state of
+  case pr ^. #state of
     PullRequestOpen ->
       Logging.logInfo $ "Pull request " <> prStr <> " is currently open."
     PullRequestClosed ->
-      if pr.merged
+      if pr ^. #merged
         then
           Logging.logDebug $ "Pull request " <> prStr <> " is merged."
         else
           Logging.logWarn $ "Pull request " <> prStr <> " is closed but unmerged."
 
-  let commitStr = pr.head.sha
+  let commitStr = pr ^. #head % #sha
 
-  Logging.logDebug $ "Found commit (" <> showt pr.commits <> "): " <> commitStr
+  Logging.logDebug $ "Found commit (" <> showt (pr ^. #commits) <> "): " <> commitStr
 
   MkCommit <$> encodeThrowM (unpack commitStr)
   where
@@ -174,7 +171,7 @@ prToCommit prNum repoName = do
       unpack
         $ mconcat
           [ "https://api.github.com/repos/",
-            pack $ decodeLenient repoName.unRepoName,
+            decodeLenientt $ repoName ^. #unRepoName,
             "/pulls/",
             prStr
           ]
@@ -237,7 +234,7 @@ cloneRepo repoPath repoSrc = do
 
   if exists
     then do
-      if env.coreConfig.clean
+      if env ^. #coreConfig % #clean
         then do
           -- 1. Repo exists but clean is active: delete and clone.
           PW.removeDirectoryRecursive repoPathOsP
@@ -259,7 +256,11 @@ cloneRepo repoPath repoSrc = do
       Logging.logInfo $ "Fetching " <> repoSrcStr <> "..."
 
       timeStr <- PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
-        withTiming_ $ Process.runGit (fetchArgs env.coreConfig.repo.remoteName)
+        withTiming_
+          . Process.runGit
+          . fetchArgs
+          . view (#coreConfig % #repo % #remoteName)
+          $ env
       Logging.logInfo $ "Fetch finished: " <> timeStr
 
     -- Our args will make a bare repo with no files e.g. git clone org/some-repo
@@ -274,7 +275,7 @@ cloneRepo repoPath repoSrc = do
         [osstr|--no-checkout|],
         [osstr|--filter=blob:none|],
         [osstr|--|],
-        repoSrc.unRepoRemoteUri,
+        repoSrc ^. #unRepoRemoteUri,
         repoPathOsP
       ]
 
@@ -284,12 +285,12 @@ cloneRepo repoPath repoSrc = do
       ]
     fetchArgs (Just remoteName) =
       [ [osstr|fetch|],
-        remoteName.unRepoRemoteName,
+        remoteName ^. #unRepoRemoteName,
         [osstr|--prune|]
       ]
 
-    repoPathOsP = toOsPath repoPath.unRepoPath
-    repoSrcStr = pack $ decodeLenient repoSrc.unRepoRemoteUri
+    repoPathOsP = toOsPath $ repoPath ^. #unRepoPath
+    repoSrcStr = decodeLenientt $ repoSrc ^. #unRepoRemoteUri
 
 findBranches ::
   ( HasCallStack,
@@ -313,7 +314,12 @@ findBranches commit repoPath = do
     then Logging.logInfo "Commit does not exist." $> []
     else do
       PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
-        (timeStr, out) <- withTiming $ Process.runGitOut (gitArgs env.coreConfig.repo.branches)
+        (timeStr, out) <-
+          withTiming
+            . Process.runGitOut
+            . gitArgs
+            . view (#coreConfig % #repo % #branches)
+            $ env
         Logging.logInfo $ "Search finished: " <> timeStr
         toText <$> decodeThrowM out
   where
@@ -325,14 +331,14 @@ findBranches commit repoPath = do
       [ [osstr|branch|],
         [osstr|-r|],
         [osstr|--contains|],
-        commit.unCommit
+        commit ^. #unCommit
       ]
 
     gitBranchArgs bs = gitDefArgs ++ ([osstr|--list|] : bs)
 
     toText = fmap T.strip . T.lines . pack
 
-    hashStr = pack $ decodeLenient commit.unCommit
+    hashStr = decodeLenientt $ commit ^. #unCommit
 
 doesCommitExist ::
   ( HasCallStack,
@@ -355,7 +361,7 @@ doesCommitExist commit repoPath = do
     gitArgs =
       [ [osstr|cat-file|],
         [osstr|-e|],
-        commit.unCommit
+        commit ^. #unCommit
       ]
 
 withTiming ::
@@ -385,4 +391,4 @@ withTiming_ :: (HasCallStack, Time :> es) => Eff es a -> Eff es Text
 withTiming_ = fmap fst . withTiming
 
 repoPathToOsP :: RepoPath -> OsPath
-repoPathToOsP = toOsPath . (.unRepoPath)
+repoPathToOsP = toOsPath . view #unRepoPath

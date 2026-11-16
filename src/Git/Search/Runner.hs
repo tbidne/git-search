@@ -260,7 +260,7 @@ getToml ::
   Args ConfigPhaseArgs1 ->
   Eff es (Maybe Toml)
 getToml args = do
-  case args.config of
+  case args ^. #config of
     Just (With p) -> Just <$> readToml p
     Just Disabled -> pure Nothing
     Nothing -> do

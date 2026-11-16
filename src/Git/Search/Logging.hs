@@ -8,8 +8,7 @@ module Git.Search.Logging
   )
 where
 
-import Git.Search.Config (Env (coreConfig))
-import Git.Search.Config.Data (Config (logColor, logLevel))
+import Git.Search.Config (Env)
 import Git.Search.Logging.Data
   ( LogLevel (LogLevelCommand, LogLevelDebug, LogLevelInfo, LogLevelWarn),
     mkLevelLog,
@@ -66,7 +65,7 @@ logSuccess ::
   Eff es ()
 logSuccess t = do
   env <- ask @Env
-  putTextLn $ mkSuccessLog env.coreConfig.logColor t
+  putTextLn $ mkSuccessLog (env ^. #coreConfig % #logColor) t
 
 logWithLevel ::
   ( HasCallStack,
@@ -79,8 +78,8 @@ logWithLevel ::
   Eff es ()
 logWithLevel logLvl t = do
   env <- ask @Env
-  case env.coreConfig.logLevel of
+  case env ^. #coreConfig % #logLevel of
     Nothing -> pure ()
     Just cfgLvl -> do
       when (cfgLvl <= logLvl) $ do
-        putTextLn =<< mkLevelLog env.coreConfig.logColor logLvl t
+        putTextLn =<< mkLevelLog (env ^. #coreConfig % #logColor) logLvl t

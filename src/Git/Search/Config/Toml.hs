@@ -39,6 +39,8 @@ data Toml = MkToml
     searchDefaults :: Seq (Either Commit Word32, RepoName, Maybe Text)
   }
 
+makeFieldLabelsNoPrefix ''Toml
+
 instance DecodeTOML Toml where
   tomlDecoder = do
     (logColor, logLevel) <- decodeLogging
@@ -79,9 +81,9 @@ instance DecodeTOML Toml where
         (keyVals, nameVals) <- L.foldl' @[] go ([], []) <$> tomlDecoder
         pure $ Map.fromList (keyVals ++ nameVals)
         where
-          go (keys, names) r = case r.key of
+          go (keys, names) r = case r ^. #key of
             -- 1. Key does not exist, so add the name.
-            Nothing -> (keys, (RepoMapKeyName r.name, r) : names)
+            Nothing -> (keys, (RepoMapKeyName (r ^. #name), r) : names)
             -- 2. Key does exist, so add it, skip the name.
             Just k -> ((RepoMapKeyCustom k, r) : keys, names)
 
@@ -145,5 +147,3 @@ decodeSwitch =
     "off" -> pure False
     "on" -> pure True
     other -> fail $ "Unrecognized: " ++ other
-
-makeFieldLabelsNoPrefix ''Toml

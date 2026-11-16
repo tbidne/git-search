@@ -10,6 +10,7 @@ module Git.Search.Prelude
     throwLeft,
 
     -- * Text
+    decodeLenientt,
     showt,
 
     -- * Dev
@@ -194,3 +195,6 @@ showt = pack . show
 todo :: forall {r :: RuntimeRep} (a :: TYPE r). (HasCallStack) => a
 todo = raise# (errorCallWithCallStackException "Prelude.todo: not yet implemented" ?callStack)
 {-# WARNING todo "todo remains in code" #-}
+
+decodeLenientt :: OsString -> Text
+decodeLenientt = pack . decodeLenient

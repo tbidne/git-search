@@ -1,4 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Main (main) where
 
@@ -20,6 +22,21 @@ import System.IO qualified as IO
 import Test.Tasty (DependencyType (AllSucceed), TestTree, dependentTestGroup)
 import Test.Tasty qualified as Tasty
 import Test.Tasty.HUnit (assertBool, assertEqual, testCase, (@=?))
+
+data Args = MkArgs
+  { cmd :: Maybe (List String),
+    cfg :: Maybe OsString,
+    name :: Maybe String
+  }
+
+makeFieldLabelsNoPrefix ''Args
+
+instance Semigroup Args where
+  MkArgs x1 x2 x3 <> MkArgs y1 y2 y3 =
+    MkArgs (x1 <|> y1) (x2 <|> y2) (x3 <|> y3)
+
+instance Monoid Args where
+  mempty = MkArgs Nothing Nothing Nothing
 
 main :: IO ()
 main = do
@@ -156,19 +173,6 @@ testNixpkgsPullRequest mAuth = testCase desc $ do
         "- origin/nixpkgs-unstable"
       ]
 
-data Args = MkArgs
-  { cmd :: Maybe (List String),
-    cfg :: Maybe OsString,
-    name :: Maybe String
-  }
-
-instance Semigroup Args where
-  MkArgs x1 x2 x3 <> MkArgs y1 y2 y3 =
-    MkArgs (x1 <|> y1) (x2 <|> y2) (x3 <|> y3)
-
-instance Monoid Args where
-  mempty = MkArgs Nothing Nothing Nothing
-
 argsCfg :: Args
 argsCfg =
   MkArgs
@@ -184,20 +188,20 @@ argsToStrs args =
     ++ nameArgs
     ++ cmdArgs
   where
-    cfgArgs = case args.cfg of
+    cfgArgs = case args ^. #cfg of
       Nothing -> ["--config", "off"]
       Just cfgPath -> ["--config", unsafeDecode cfgPath]
 
     cmdArgs =
       fromMaybe
         ["search-commit", "c190319055bb5c31acfd7bb8356ce9ab05cb2b36"]
-        args.cmd
+        (args ^. #cmd)
 
     nameArgs =
       maybe
         ["--name", "nixos/nixpkgs"]
         (\n -> ["--name", n])
-        args.name
+        (args ^. #name)
 
     otherArgs =
       [ "--log-color",

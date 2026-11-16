@@ -16,7 +16,7 @@ where
 import Effectful.FileSystem.PathReader.Dynamic qualified as PR
 import Effectful.FileSystem.PathWriter.Dynamic qualified as PW
 import FileSystem.Path qualified as FS.Path
-import Git.Search.Config.Args (Args (command))
+import Git.Search.Config.Args (Args)
 import Git.Search.Config.Data
   ( Command (DeleteCache, SearchCommit, SearchPullRequest),
     Config (MkConfig, auth, clean, logColor, logLevel, repo),
@@ -47,12 +47,11 @@ import Git.Search.Config.Data
         shouldClone
       ),
   )
-import Git.Search.Config.Merged (MergedConfig (coreConfig, key), mergeConfig)
+import Git.Search.Config.Merged (MergedConfig, mergeConfig)
 import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseArgs2, ConfigPhaseEnv))
 import Git.Search.Config.Toml (Toml)
 import Git.Search.Data
-  ( Domain (unDomain),
-    Protocol (ProtocolHttps, ProtocolSsh),
+  ( Protocol (ProtocolHttps, ProtocolSsh),
     RepoName (MkRepoName),
     RepoPath (MkRepoPath),
     RepoRemoteUri (MkRepoRemoteUri),
@@ -61,6 +60,8 @@ import Git.Search.Prelude
 
 newtype Env = MkEnv {coreConfig :: Config ConfigPhaseEnv}
   deriving stock (Eq, Show)
+
+makeFieldLabelsNoPrefix ''Env
 
 -- | Evolves the CLI Args to runtime Env.
 toEnv ::
@@ -74,7 +75,7 @@ toEnv ::
 toEnv args mToml = do
   let merged = mergeConfig args mToml
 
-  command <- case args.command of
+  command <- case args ^. #command of
     DeleteCache () -> mkDeleteCache merged
     SearchCommit commit -> mkSearchCommit merged commit
     SearchPullRequest prNum -> mkSearchPullRequest merged prNum
@@ -83,19 +84,19 @@ toEnv args mToml = do
     ( MkEnv
         { coreConfig =
             MkConfig
-              { auth = merged.coreConfig.auth,
-                clean = merged.coreConfig.clean,
-                logColor = merged.coreConfig.logColor,
-                logLevel = merged.coreConfig.logLevel,
+              { auth = merged ^. #coreConfig % #auth,
+                clean = merged ^. #coreConfig % #clean,
+                logColor = merged ^. #coreConfig % #logColor,
+                logLevel = merged ^. #coreConfig % #logLevel,
                 repo =
                   MkRepoConfig
-                    { branches = merged.coreConfig.repo.branches,
+                    { branches = merged ^. #coreConfig % #repo % #branches,
                       domain = (),
                       key = (),
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = merged.coreConfig.repo.remoteName
+                      remoteName = merged ^. #coreConfig % #repo % #remoteName
                     }
               }
         },
@@ -103,20 +104,20 @@ toEnv args mToml = do
     )
   where
     mkDeleteCache merged =
-      case merged.coreConfig.repo.name of
+      case merged ^. #coreConfig % #repo % #name of
         Nothing ->
           DeleteCache . DeleteCacheGlobal <$> getCacheRoot
         Just repoName -> do
           -- NOTE: Ignoring merged.coreConfig.repo.path as it is irrelevant
           -- for deleting the cache.
-          repoPath <- getRepoPath repoName merged.key Nothing
+          repoPath <- getRepoPath repoName (merged ^. #key) Nothing
           pure $ DeleteCache (DeleteCacheLocal repoPath)
 
     mkSearchCommit merged commit = do
       repoName@(MkRepoName name) <- getName "search-commit" merged
 
-      let domain = merged.coreConfig.repo.domain.unDomain
-          protocol = merged.coreConfig.repo.protocol
+      let domain = merged ^. #coreConfig % #repo % #domain % #unDomain
+          protocol = merged ^. #coreConfig % #repo % #protocol
 
           prefix = case protocol of
             ProtocolHttps -> mkHttps domain
@@ -126,7 +127,11 @@ toEnv args mToml = do
 
           repoSrc = MkRepoRemoteUri src
 
-      repoPath <- getRepoPath repoName merged.key merged.coreConfig.repo.path
+      repoPath <-
+        getRepoPath
+          repoName
+          (merged ^. #key)
+          (merged ^. #coreConfig % #repo % #path)
 
       pure
         . SearchCommit
@@ -140,8 +145,8 @@ toEnv args mToml = do
     mkSearchPullRequest merged prNum = do
       repoName@(MkRepoName name) <- getName "search-pr" merged
 
-      let domain = merged.coreConfig.repo.domain.unDomain
-          protocol = merged.coreConfig.repo.protocol
+      let domain = merged ^. #coreConfig % #repo % #domain % #unDomain
+          protocol = merged ^. #coreConfig % #repo % #protocol
 
       unless (domain == [osstr|github.com|]) $ do
         throwString
@@ -157,7 +162,11 @@ toEnv args mToml = do
 
           repoSrc = MkRepoRemoteUri src
 
-      repoPath <- getRepoPath repoName merged.key merged.coreConfig.repo.path
+      repoPath <-
+        getRepoPath
+          repoName
+          (merged ^. #key)
+          (merged ^. #coreConfig % #repo % #path)
 
       pure
         . SearchPullRequest
@@ -257,7 +266,7 @@ getCacheDir =
   PR.getXdgCache [osstr|git-search|] >>= FS.Path.parseAbsDir
 
 getName :: (HasCallStack) => String -> MergedConfig -> Eff es RepoName
-getName cmdName merged = case merged.coreConfig.repo.name of
+getName cmdName merged = case merged ^. #coreConfig % #repo % #name of
   Just n -> pure n
   Nothing ->
     throwString
@@ -273,5 +282,3 @@ mkHttps domain = [osstr|https://|] <> domain <> [osstr|/|]
 
 mkSsh :: OsString -> OsString
 mkSsh domain = [osstr|git@|] <> domain <> [osstr|:|]
-
-makeFieldLabelsNoPrefix ''Env
