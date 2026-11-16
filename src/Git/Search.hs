@@ -10,17 +10,14 @@ module Git.Search
   )
 where
 
-import Control.Exception.Utils qualified as Ex.Utils
 import Data.Aeson qualified as Asn
 import Data.Functor (($>))
-import Data.List qualified as L
 import Data.Text qualified as T
 import Data.Time.Relative (Format (verbosity))
 import Data.Time.Relative qualified as Time.Rel
 import Effectful.FileSystem.PathReader.Dynamic qualified as PR
 import Effectful.FileSystem.PathWriter.Dynamic qualified as PW
 import Effectful.HTTP.Client.Static qualified as Eff.Http
-import Effectful.Process qualified as P
 import Effectful.Time.Static qualified as Time
 import Git.Search.Config (Env (coreConfig))
 import Git.Search.Config.Data
@@ -45,6 +42,7 @@ import Git.Search.Data
   )
 import Git.Search.Logging qualified as Logging
 import Git.Search.Prelude
+import Git.Search.Process qualified as Process
 import Network.HTTP.Client qualified as Http
 
 -- | Deletes the cache.
@@ -58,22 +56,21 @@ deleteCache ::
   ) =>
   DeleteCacheType ->
   Eff es ()
-deleteCache cacheType =
-  case cacheType of
-    DeleteCacheGlobal (MkPath cacheDir) -> do
-      Logging.logDebug $ "Deleting cache: " <> pack (decodeLenient cacheDir)
+deleteCache = \case
+  DeleteCacheGlobal (MkPath cacheDir) -> do
+    Logging.logDebug $ "Deleting cache: " <> pack (decodeLenient cacheDir)
 
-      PW.removePathForcibly cacheDir
-    DeleteCacheLocal repoPath -> do
-      let repoDir = repoPathToOsP repoPath
-          repoDirStr = pack $ decodeLenient repoDir
+    PW.removePathForcibly cacheDir
+  DeleteCacheLocal repoPath -> do
+    let repoDir = repoPathToOsP repoPath
+        repoDirStr = pack $ decodeLenient repoDir
 
-      Logging.logDebug $ "Deleting cache repo: " <> repoDirStr
+    Logging.logDebug $ "Deleting cache repo: " <> repoDirStr
 
-      exists <- PR.doesDirectoryExist repoDir
-      if exists
-        then PW.removePathForcibly repoDir
-        else throwText $ "Cached repository does not exist: " <> repoDirStr
+    exists <- PR.doesDirectoryExist repoDir
+    if exists
+      then PW.removePathForcibly repoDir
+      else throwText $ "Cached repository does not exist: " <> repoDirStr
 
 -- | Returns a list of branches matching the search criteria.
 searchCommit ::
@@ -148,7 +145,12 @@ prToCommit prNum repoName = do
   manager <- Eff.Http.newTlsManager
   baseReq <- updateReq authHeader <$> Http.parseRequest baseUrl
 
-  pr <- Eff.Http.withResponse @GitPullRequest baseReq manager (Eff.Http.readResponseJson baseUrl)
+  pr <-
+    Eff.Http.withResponse
+      @GitPullRequest
+      baseReq
+      manager
+      (Eff.Http.readResponseJson baseUrl)
 
   case pr.state of
     PullRequestOpen ->
@@ -249,7 +251,7 @@ cloneRepo repoPath repoSrc = do
   where
     runClone = do
       Logging.logInfo $ "Cloning " <> repoSrcStr <> "..."
-      timeStr <- withTiming_ $ runGit_ cloneArgs
+      timeStr <- withTiming_ $ Process.runGit cloneArgs
       Logging.logInfo $ "Clone finished: " <> timeStr
 
     runFetch = do
@@ -257,7 +259,7 @@ cloneRepo repoPath repoSrc = do
       Logging.logInfo $ "Fetching " <> repoSrcStr <> "..."
 
       timeStr <- PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
-        withTiming_ $ runGit_ (fetchArgs env.coreConfig.repo.remoteName)
+        withTiming_ $ Process.runGit (fetchArgs env.coreConfig.repo.remoteName)
       Logging.logInfo $ "Fetch finished: " <> timeStr
 
     -- Our args will make a bare repo with no files e.g. git clone org/some-repo
@@ -311,7 +313,7 @@ findBranches commit repoPath = do
     then Logging.logInfo "Commit does not exist." $> []
     else do
       PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
-        (timeStr, out) <- withTiming $ runGitOut (gitArgs env.coreConfig.repo.branches)
+        (timeStr, out) <- withTiming $ Process.runGitOut (gitArgs env.coreConfig.repo.branches)
         Logging.logInfo $ "Search finished: " <> timeStr
         toText <$> decodeThrowM out
   where
@@ -345,7 +347,7 @@ doesCommitExist ::
   Eff es Bool
 doesCommitExist commit repoPath = do
   (ec, _, _) <-
-    PW.withCurrentDirectory (repoPathToOsP repoPath) $ runGit gitArgs
+    PW.withCurrentDirectory (repoPathToOsP repoPath) $ Process.runGit gitArgs
   pure $ case ec of
     ExitSuccess -> True
     ExitFailure _ -> False
@@ -355,106 +357,6 @@ doesCommitExist commit repoPath = do
         [osstr|-e|],
         commit.unCommit
       ]
-
-runGitOut ::
-  ( HasCallStack,
-    Process :> es,
-    Reader Env :> es,
-    Terminal :> es,
-    Time :> es
-  ) =>
-  List OsString ->
-  Eff es OsString
-runGitOut = runProcOut [osstr|git|]
-
-runGit ::
-  ( HasCallStack,
-    Process :> es,
-    Reader Env :> es,
-    Terminal :> es,
-    Time :> es
-  ) =>
-  List OsString ->
-  Eff es (ExitCode, String, String)
-runGit = runProc [osstr|git|]
-
-runGit_ ::
-  ( HasCallStack,
-    Process :> es,
-    Reader Env :> es,
-    Terminal :> es,
-    Time :> es
-  ) =>
-  List OsString ->
-  Eff es ()
-runGit_ args = do
-  (ec, _, err) <- runGit args
-  case ec of
-    ExitFailure _ -> do
-      let argsStr = L.unwords $ fmap decodeLenient args
-      Ex.Utils.throwString
-        $ unpack
-        $ mconcat
-          [ "Error running git with args '",
-            pack argsStr,
-            "': ",
-            pack err
-          ]
-    ExitSuccess -> pure ()
-
-runProcOut ::
-  ( HasCallStack,
-    Process :> es,
-    Reader Env :> es,
-    Terminal :> es,
-    Time :> es
-  ) =>
-  OsString ->
-  List OsString ->
-  Eff es OsString
-runProcOut exe args = do
-  let exeStr = decodeLenient exe
-  (ec, out, err) <- runProc exe args
-  case ec of
-    ExitFailure _ -> do
-      let argsStr = L.unwords $ fmap decodeLenient args
-      Ex.Utils.throwString
-        $ unpack
-        $ mconcat
-          [ "Error running process '",
-            pack exeStr,
-            "' with args '",
-            pack argsStr,
-            "': ",
-            pack err
-          ]
-    ExitSuccess -> encodeThrowM out
-
-runProc ::
-  ( HasCallStack,
-    Process :> es,
-    Reader Env :> es,
-    Terminal :> es,
-    Time :> es
-  ) =>
-  OsString ->
-  List OsString ->
-  Eff es (ExitCode, String, String)
-runProc exe args = do
-  exeStr <- decodeThrowM exe
-  argsStrs <- traverse decodeThrowM args
-
-  let msg =
-        mconcat
-          [ "runProcess: ",
-            T.unwords (pack exeStr : fmap pack argsStrs)
-          ]
-
-  Logging.logDebug msg
-
-  P.readProcessWithExitCode exeStr argsStrs name
-  where
-    name = "runProcess"
 
 withTiming ::
   ( HasCallStack,

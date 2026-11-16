@@ -64,6 +64,7 @@ library
     Git.Search.Logging
     Git.Search.Logging.Data
     Git.Search.Prelude
+    Git.Search.Process
     Git.Search.Runner
 
   build-depends:
