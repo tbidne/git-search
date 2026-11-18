@@ -24,10 +24,8 @@ import Git.Search.Config.Data
   ( DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
     SearchCommitParams
       ( MkSearchCommitParams,
-        commit,
-        repoPath,
-        repoSrc,
-        shouldClone
+        baseParams,
+        commit
       ),
     SearchPullRequestParams,
   )
@@ -84,14 +82,16 @@ searchCommit ::
 searchCommit params = do
   Logging.logDebug $ "Clone destination: " <> repoPathStr
 
-  if params ^. #shouldClone
+  if baseParams ^. #shouldClone
     then cloneRepo repoPath repoSrc
     else Logging.logInfo $ "Skipping clone/fetch: " <> repoSrcStr
 
   findBranches (params ^. #commit) repoPath
   where
-    repoPath = params ^. #repoPath
-    repoSrc = params ^. #repoSrc
+    baseParams = params ^. #baseParams
+
+    repoPath = baseParams ^. #repoPath
+    repoSrc = baseParams ^. #repoSrc
 
     repoPathOsP = toOsPath $ repoPath ^. #unRepoPath
     repoPathStr = decodeLenientt repoPathOsP
@@ -114,10 +114,8 @@ searchPullRequest params = do
   commit <- prToCommit (params ^. #prNum) (params ^. #repoName)
   searchCommit
     $ MkSearchCommitParams
-      { commit,
-        repoPath = params ^. #repoPath,
-        repoSrc = params ^. #repoSrc,
-        shouldClone = params ^. #shouldClone
+      { baseParams = params ^. #baseParams,
+        commit
       }
 
 prToCommit ::

@@ -11,6 +11,7 @@ module Git.Search.Config.Data
 
     -- * Command
     Command (..),
+    SearchBaseParams (..),
     SearchCommitParams (..),
     SearchPullRequestParams (..),
     _DeleteCache,
@@ -219,6 +220,13 @@ type family DeleteCacheF p where
   DeleteCacheF ConfigPhaseArgs2 = ()
   DeleteCacheF ConfigPhaseEnv = DeleteCacheType
 
+data SearchBaseParams = MkSearchBaseParams
+  { repoPath :: RepoPath,
+    repoSrc :: RepoRemoteUri,
+    shouldClone :: Bool
+  }
+  deriving stock (Eq, Show)
+
 type SearchCommitF :: ConfigPhase -> Type
 type family SearchCommitF p where
   SearchCommitF ConfigPhaseArgs1 = Commit
@@ -226,10 +234,8 @@ type family SearchCommitF p where
   SearchCommitF ConfigPhaseEnv = SearchCommitParams
 
 data SearchCommitParams = MkSearchCommitParams
-  { commit :: Commit,
-    repoPath :: RepoPath,
-    repoSrc :: RepoRemoteUri,
-    shouldClone :: Bool
+  { baseParams :: SearchBaseParams,
+    commit :: Commit
   }
   deriving stock (Eq, Show)
 
@@ -246,11 +252,9 @@ type family SearchPullRequestF p where
   SearchPullRequestF ConfigPhaseEnv = SearchPullRequestParams
 
 data SearchPullRequestParams = MkSearchPullRequestParams
-  { prNum :: Word32,
-    repoPath :: RepoPath,
-    repoSrc :: RepoRemoteUri,
-    repoName :: RepoName,
-    shouldClone :: Bool
+  { baseParams :: SearchBaseParams,
+    prNum :: Word32,
+    repoName :: RepoName
   }
   deriving stock (Eq, Show)
 
@@ -342,6 +346,7 @@ deriving stock instance
 makeFieldLabelsNoPrefix ''RepoConfig
 makeFieldLabelsNoPrefix ''Config
 makeFieldLabelsNoPrefix ''SearchCommitParams
+makeFieldLabelsNoPrefix ''SearchBaseParams
 makeFieldLabelsNoPrefix ''SearchPullRequestParams
 makePrisms ''DeleteCacheType
 makePrisms ''Command

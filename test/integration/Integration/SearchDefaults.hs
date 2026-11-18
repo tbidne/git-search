@@ -15,20 +15,22 @@ import Git.Search.Config.Data
         protocol,
         remoteName
       ),
-    SearchCommitParams
-      ( MkSearchCommitParams,
-        commit,
+    SearchBaseParams
+      ( MkSearchBaseParams,
         repoPath,
         repoSrc,
         shouldClone
       ),
+    SearchCommitParams
+      ( MkSearchCommitParams,
+        baseParams,
+        commit
+      ),
     SearchPullRequestParams
       ( MkSearchPullRequestParams,
+        baseParams,
         prNum,
-        repoName,
-        repoPath,
-        repoSrc,
-        shouldClone
+        repoName
       ),
   )
 import Git.Search.Logging.Data (LogLevel (LogLevelDebug))
@@ -87,10 +89,13 @@ testSearchDefaults = testProp1 desc "testSearchDefaults" $ do
     expectedCmd1 =
       SearchCommit
         $ MkSearchCommitParams
-          { commit = unsafeCommit "c190319",
-            repoPath = MkRepoPath $ root <</>> [reldirPathSep|home/local/path/|],
-            repoSrc = unsafeRemoteUri "git@server.com:org/repo",
-            shouldClone = True
+          { baseParams =
+              MkSearchBaseParams
+                { repoPath = MkRepoPath $ root <</>> [reldirPathSep|home/local/path/|],
+                  repoSrc = unsafeRemoteUri "git@server.com:org/repo",
+                  shouldClone = True
+                },
+            commit = unsafeCommit "c190319"
           }
 
     expectedEnv2 =
@@ -118,9 +123,12 @@ testSearchDefaults = testProp1 desc "testSearchDefaults" $ do
     expectedCmd2 =
       SearchPullRequest
         $ MkSearchPullRequestParams
-          { prNum = 510883,
-            repoPath = MkRepoPath $ root <</>> [reldirPathSep|.cache/git-search/org/repo2/|],
-            repoSrc = unsafeRemoteUri "https://github.com/org/repo2",
-            repoName = MkRepoName [osstr|org/repo2|],
-            shouldClone = True
+          { baseParams =
+              MkSearchBaseParams
+                { repoPath = MkRepoPath $ root <</>> [reldirPathSep|.cache/git-search/org/repo2/|],
+                  repoSrc = unsafeRemoteUri "https://github.com/org/repo2",
+                  shouldClone = True
+                },
+            prNum = 510883,
+            repoName = MkRepoName [osstr|org/repo2|]
           }

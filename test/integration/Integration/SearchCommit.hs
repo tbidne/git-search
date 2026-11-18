@@ -15,12 +15,16 @@ import Git.Search.Config.Data
         protocol,
         remoteName
       ),
-    SearchCommitParams
-      ( MkSearchCommitParams,
-        commit,
+    SearchBaseParams
+      ( MkSearchBaseParams,
         repoPath,
         repoSrc,
         shouldClone
+      ),
+    SearchCommitParams
+      ( MkSearchCommitParams,
+        baseParams,
+        commit
       ),
   )
 import Git.Search.Logging.Data (LogLevel (LogLevelDebug))
@@ -78,10 +82,13 @@ testSearchCommitDefault = testProp1 desc "testSearchCommitDefault" $ do
     expectedCmd =
       SearchCommit
         $ MkSearchCommitParams
-          { commit = unsafeCommit "abcdef0",
-            repoPath = MkRepoPath repoCacheDir,
-            repoSrc = unsafeRemoteUri "https://github.com/org/repo",
-            shouldClone = True
+          { baseParams =
+              MkSearchBaseParams
+                { repoPath = MkRepoPath repoCacheDir,
+                  repoSrc = unsafeRemoteUri "https://github.com/org/repo",
+                  shouldClone = True
+                },
+            commit = unsafeCommit "abcdef0"
           }
 
 testSearchCommitArgs :: TestTree
@@ -141,10 +148,13 @@ testSearchCommitArgs = testProp1 desc "testSearchCommitArgs" $ do
     expectedCmd =
       SearchCommit
         $ MkSearchCommitParams
-          { commit = unsafeCommit "abcdef0",
-            repoPath = MkRepoPath $ root <</>> [reldirPathSep|local/path|],
-            repoSrc = unsafeRemoteUri "git@server.com:org/repo",
-            shouldClone = True
+          { baseParams =
+              MkSearchBaseParams
+                { repoPath = MkRepoPath $ root <</>> [reldirPathSep|local/path|],
+                  repoSrc = unsafeRemoteUri "git@server.com:org/repo",
+                  shouldClone = True
+                },
+            commit = unsafeCommit "abcdef0"
           }
 
 testSearchCommitToml :: TestTree
@@ -188,10 +198,13 @@ testSearchCommitToml = testProp1 desc "testSearchCommitToml" $ do
     expectedCmd =
       SearchCommit
         $ MkSearchCommitParams
-          { commit = unsafeCommit "abcdef0",
-            repoPath = MkRepoPath $ homeDir <</>> [reldirPathSep|local/path/|],
-            repoSrc = unsafeRemoteUri "git@server.com:org/repo",
-            shouldClone = True
+          { baseParams =
+              MkSearchBaseParams
+                { repoPath = MkRepoPath $ homeDir <</>> [reldirPathSep|local/path/|],
+                  repoSrc = unsafeRemoteUri "git@server.com:org/repo",
+                  shouldClone = True
+                },
+            commit = unsafeCommit "abcdef0"
           }
 
 testSearchCommitTomlRepoDefaults :: TestTree
@@ -233,10 +246,13 @@ testSearchCommitTomlRepoDefaults = testProp1 desc "testSearchCommitTomlRepoDefau
     expectedCmd =
       SearchCommit
         $ MkSearchCommitParams
-          { commit = unsafeCommit "abcdef0",
-            repoPath = MkRepoPath $ root <</>> [reldirPathSep|.cache/git-search/my/repo/|],
-            repoSrc = unsafeRemoteUri "https://github.com/my/repo",
-            shouldClone = True
+          { baseParams =
+              MkSearchBaseParams
+                { repoPath = MkRepoPath $ root <</>> [reldirPathSep|.cache/git-search/my/repo/|],
+                  repoSrc = unsafeRemoteUri "https://github.com/my/repo",
+                  shouldClone = True
+                },
+            commit = unsafeCommit "abcdef0"
           }
 
 testSearchCommitTomlKey1 :: TestTree
@@ -280,10 +296,13 @@ testSearchCommitTomlKey1 = testProp1 desc "testSearchCommitTomlKey1" $ do
     expectedCmd =
       SearchCommit
         $ MkSearchCommitParams
-          { commit = unsafeCommit "abcdef0",
-            repoPath = MkRepoPath $ homeDir <</>> [reldirPathSep|local/path1/|],
-            repoSrc = unsafeRemoteUri "git@server1.com:org/repo_dupe",
-            shouldClone = True
+          { baseParams =
+              MkSearchBaseParams
+                { repoPath = MkRepoPath $ homeDir <</>> [reldirPathSep|local/path1/|],
+                  repoSrc = unsafeRemoteUri "git@server1.com:org/repo_dupe",
+                  shouldClone = True
+                },
+            commit = unsafeCommit "abcdef0"
           }
 
 testSearchCommitTomlKey2 :: TestTree
@@ -327,10 +346,13 @@ testSearchCommitTomlKey2 = testProp1 desc "testSearchCommitTomlKey2" $ do
     expectedCmd =
       SearchCommit
         $ MkSearchCommitParams
-          { commit = unsafeCommit "abcdef0",
-            repoPath = MkRepoPath $ homeDir <</>> [reldirPathSep|local/path2/|],
-            repoSrc = unsafeRemoteUri "git@server2.com:org/repo_dupe",
-            shouldClone = True
+          { baseParams =
+              MkSearchBaseParams
+                { repoPath = MkRepoPath $ homeDir <</>> [reldirPathSep|local/path2/|],
+                  repoSrc = unsafeRemoteUri "git@server2.com:org/repo_dupe",
+                  shouldClone = True
+                },
+            commit = unsafeCommit "abcdef0"
           }
 
 testSearchCommitTomlKey3 :: TestTree
@@ -374,10 +396,13 @@ testSearchCommitTomlKey3 = testProp1 desc "testSearchCommitTomlKey3" $ do
     expectedCmd =
       SearchCommit
         $ MkSearchCommitParams
-          { commit = unsafeCommit "abcdef0",
-            repoPath = MkRepoPath $ root <</>> [reldirPathSep|.cache/git-search/repo3/|],
-            repoSrc = unsafeRemoteUri "git@server3.com:org/repo_dupe",
-            shouldClone = True
+          { baseParams =
+              MkSearchBaseParams
+                { repoPath = MkRepoPath $ root <</>> [reldirPathSep|.cache/git-search/repo3/|],
+                  repoSrc = unsafeRemoteUri "git@server3.com:org/repo_dupe",
+                  shouldClone = True
+                },
+            commit = unsafeCommit "abcdef0"
           }
 
 testSearchCommitTomlKeyMiss :: TestTree
@@ -421,10 +446,13 @@ testSearchCommitTomlKeyMiss = testProp1 desc "testSearchCommitTomlKeyMiss" $ do
     expectedCmd =
       SearchCommit
         $ MkSearchCommitParams
-          { commit = unsafeCommit "abcdef0",
-            repoPath = MkRepoPath $ root <</>> [reldirPathSep|.cache/git-search/repo_dupe/|],
-            repoSrc = unsafeRemoteUri "https://github.com/repo_dupe",
-            shouldClone = True
+          { baseParams =
+              MkSearchBaseParams
+                { repoPath = MkRepoPath $ root <</>> [reldirPathSep|.cache/git-search/repo_dupe/|],
+                  repoSrc = unsafeRemoteUri "https://github.com/repo_dupe",
+                  shouldClone = True
+                },
+            commit = unsafeCommit "abcdef0"
           }
 
 testSearchCommitArgsOverridesToml :: TestTree
@@ -484,10 +512,13 @@ testSearchCommitArgsOverridesToml = testProp1 desc "testSearchCommitArgsOverride
     expectedCmd =
       SearchCommit
         $ MkSearchCommitParams
-          { commit = unsafeCommit "abcdef0",
-            repoPath = MkRepoPath repoCacheDir,
-            repoSrc = unsafeRemoteUri "https://github.com/org/repo",
-            shouldClone = True
+          { baseParams =
+              MkSearchBaseParams
+                { repoPath = MkRepoPath repoCacheDir,
+                  repoSrc = unsafeRemoteUri "https://github.com/org/repo",
+                  shouldClone = True
+                },
+            commit = unsafeCommit "abcdef0"
           }
 
 testSearchCommitNameReq :: TestTree

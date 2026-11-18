@@ -111,22 +111,27 @@ runSearch = withHiddenInput $ do
 
     -- Check the command params for a duplicate repo.
     handleCloneDupes ::
-      forall x.
-      ( LabelOptic' "repoPath" A_Lens x RepoPath,
-        LabelOptic' "repoSrc" A_Lens x RepoRemoteUri,
-        LabelOptic' "shouldClone" A_Lens x Bool
+      forall x b.
+      ( LabelOptic' "baseParams" A_Lens x b,
+        LabelOptic' "repoPath" A_Lens b RepoPath,
+        LabelOptic' "repoSrc" A_Lens b RepoRemoteUri,
+        LabelOptic' "shouldClone" A_Lens b Bool
       ) =>
       Set RepoProv ->
       x ->
       (Set RepoProv, x)
     handleCloneDupes foundRepos params =
-      let repoParams = (params ^. #repoPath, params ^. #repoSrc)
-       in if Set.member repoParams foundRepos
-            -- 1. We found a duplicate. Set the command's clone to false.
-            then (foundRepos, set' #shouldClone False params)
-            -- 2. No duplicates, proceed normally, adding the newly
-            --   found repo.
-            else (Set.insert repoParams foundRepos, params)
+      if Set.member repoParams foundRepos
+        -- 1. We found a duplicate. Set the command's clone to false.
+        then (foundRepos, set' (#baseParams % #shouldClone) False params)
+        -- 2. No duplicates, proceed normally, adding the newly
+        --   found repo.
+        else (Set.insert repoParams foundRepos, params)
+      where
+        repoParams =
+          ( params ^. #baseParams % #repoPath,
+            params ^. #baseParams % #repoSrc
+          )
 
     printBranches finalCmd branches = do
       -- If this is not the final command, append a newline.

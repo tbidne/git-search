@@ -15,13 +15,17 @@ import Git.Search.Config.Data
         protocol,
         remoteName
       ),
-    SearchPullRequestParams
-      ( MkSearchPullRequestParams,
-        prNum,
-        repoName,
+    SearchBaseParams
+      ( MkSearchBaseParams,
         repoPath,
         repoSrc,
         shouldClone
+      ),
+    SearchPullRequestParams
+      ( MkSearchPullRequestParams,
+        baseParams,
+        prNum,
+        repoName
       ),
   )
 import Git.Search.Logging.Data (LogLevel (LogLevelDebug))
@@ -76,11 +80,14 @@ testSearchPullRequestDefault = testProp1 desc "testSearchPullRequestDefault" $ d
     expectedCmd =
       SearchPullRequest
         $ MkSearchPullRequestParams
-          { prNum = 123,
-            repoPath = MkRepoPath repoCacheDir,
-            repoSrc = unsafeRemoteUri "https://github.com/org/repo",
-            repoName = unsafeRepoName "org/repo",
-            shouldClone = True
+          { baseParams =
+              MkSearchBaseParams
+                { repoPath = MkRepoPath repoCacheDir,
+                  repoSrc = unsafeRemoteUri "https://github.com/org/repo",
+                  shouldClone = True
+                },
+            prNum = 123,
+            repoName = unsafeRepoName "org/repo"
           }
 
 testSearchPullRequestArgs :: TestTree
@@ -136,11 +143,14 @@ testSearchPullRequestArgs = testProp1 desc "testSearchPullRequestArgs" $ do
     expectedCmd =
       SearchPullRequest
         $ MkSearchPullRequestParams
-          { prNum = 123,
-            repoPath = MkRepoPath $ root <</>> [reldirPathSep|local/path/|],
-            repoSrc = unsafeRemoteUri "https://github.com/org/repo",
-            repoName = unsafeRepoName "org/repo",
-            shouldClone = True
+          { baseParams =
+              MkSearchBaseParams
+                { repoPath = MkRepoPath $ root <</>> [reldirPathSep|local/path/|],
+                  repoSrc = unsafeRemoteUri "https://github.com/org/repo",
+                  shouldClone = True
+                },
+            prNum = 123,
+            repoName = unsafeRepoName "org/repo"
           }
 
 testSearchPullRequestToml :: TestTree
@@ -190,11 +200,14 @@ testSearchPullRequestToml = testProp1 desc "testSearchPullRequestToml" $ do
     expectedCmd =
       SearchPullRequest
         $ MkSearchPullRequestParams
-          { prNum = 123,
-            repoPath = MkRepoPath $ homeDir <</>> [reldirPathSep|local/path/|],
-            repoSrc = unsafeRemoteUri "https://github.com/org/repo",
-            repoName = unsafeRepoName "org/repo",
-            shouldClone = True
+          { baseParams =
+              MkSearchBaseParams
+                { repoPath = MkRepoPath $ homeDir <</>> [reldirPathSep|local/path/|],
+                  repoSrc = unsafeRemoteUri "https://github.com/org/repo",
+                  shouldClone = True
+                },
+            prNum = 123,
+            repoName = unsafeRepoName "org/repo"
           }
 
 testSearchPullRequestArgsOverridesToml :: TestTree
@@ -254,11 +267,14 @@ testSearchPullRequestArgsOverridesToml = testProp1 desc "testSearchPullRequestAr
     expectedCmd =
       SearchPullRequest
         $ MkSearchPullRequestParams
-          { prNum = 123,
-            repoPath = MkRepoPath repoCacheDir,
-            repoSrc = unsafeRemoteUri "https://github.com/org/repo",
-            repoName = unsafeRepoName "org/repo",
-            shouldClone = True
+          { baseParams =
+              MkSearchBaseParams
+                { repoPath = MkRepoPath repoCacheDir,
+                  repoSrc = unsafeRemoteUri "https://github.com/org/repo",
+                  shouldClone = True
+                },
+            prNum = 123,
+            repoName = unsafeRepoName "org/repo"
           }
 
 testSearchPullRequestNameReq :: TestTree
