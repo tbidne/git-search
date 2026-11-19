@@ -455,7 +455,7 @@ configParser =
         OA.metavar "(PATH | off)",
         OA.completer EOC.compgenCwdPathsCompleter,
         OA.completeWith ["off"],
-        mkHelpNoLine
+        mkHelp
           $ mconcat
             [ "Path to TOML config. We also look in XDG config e.g. ",
               "~/.config/git-search/config.toml."
