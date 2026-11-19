@@ -70,7 +70,12 @@ runProcOut exe args = do
             "': ",
             pack err
           ]
-    ExitSuccess -> encodeThrowM out
+    ExitSuccess ->
+      encodeThrowM
+        . unpack
+        . T.strip
+        . pack
+        $ out
 
 -- | Runs a process.
 runProc ::

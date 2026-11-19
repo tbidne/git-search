@@ -424,8 +424,7 @@ branchToCommit branch repoPath = do
 
   PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
     fmap MkCommit
-      . stripOsStrThrowM
-      <=< Process.runGitOut
+      . Process.runGitOut
       $ gitArgs
   where
     slashChar = OsStr.unsafeFromChar '/'
@@ -520,12 +519,3 @@ withTiming_ = fmap fst . withTiming
 
 repoPathToOsP :: RepoPath -> OsPath
 repoPathToOsP = toOsPath . view #unRepoPath
-
-stripOsStrThrowM ::
-  (HasCallStack) =>
-  OsString ->
-  Eff es OsString
-stripOsStrThrowM str = do
-  txt <- pack <$> decodeThrowM str
-  let stripped = T.strip txt
-  encodeThrowM $ unpack stripped
