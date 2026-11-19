@@ -22,7 +22,7 @@ import Git.Search.Config.Data
         SearchDefaults,
         SearchPullRequest
       ),
-    Config (MkConfig, auth, clean, logColor, logLevel, repo),
+    Config (MkConfig, auth, logColor, logLevel, repo, update),
     DeleteCacheF,
     RepoConfig
       ( MkRepoConfig,
@@ -49,6 +49,7 @@ import Git.Search.Data
     Protocol (ProtocolHttps, ProtocolSsh),
     RepoName (MkRepoName),
     RepoRemoteName (MkRepoRemoteName),
+    RepoUpdate (RepoUpdateAuto, RepoUpdateClean, RepoUpdateOff),
   )
 import Git.Search.Logging.Data
   ( LogLevel
@@ -197,7 +198,7 @@ argsParser = do
       auth <- authParser
       ~(logColor, logLevel) <- loggingParser
       ~(branches, domain, name, path, protocol, remoteName) <- repoParser
-      ~(clean, config) <- miscParser
+      ~(config, update) <- miscParser
 
       command <- commandParser
 
@@ -208,7 +209,6 @@ argsParser = do
             coreConfig =
               MkConfig
                 { auth,
-                  clean,
                   logColor,
                   logLevel,
                   repo =
@@ -220,7 +220,8 @@ argsParser = do
                         path,
                         protocol,
                         remoteName
-                      }
+                      },
+                  update
                 }
           }
 
@@ -406,25 +407,43 @@ remoteNameParser =
       s <- OA.str
       WD.disabledParser s (MkRepoRemoteName <$> encodeFail (unpack s))
 
-miscParser :: Parser (Maybe Bool, Maybe (WithDisabled OsPath))
+miscParser :: Parser (Maybe (WithDisabled OsPath), Maybe RepoUpdate)
 miscParser =
   OA.parserOptionGroup "Miscellaneous options:"
     $ (,)
-    <$> cleanParser
-    <*> configParser
+    <$> configParser
+    <*> updateParser
 
-cleanParser :: Parser (Maybe Bool)
-cleanParser =
-  switchParser
+updateParser :: Parser (Maybe RepoUpdate)
+updateParser =
+  OA.optional
+    $ OA.option
+      r
     $ mconcat
-      [ OA.long "clean",
-        mkHelp
-          $ mconcat
-            [ "Performs a clean clone of the repo, overwriting any previous ",
-              "clones. Otherwise runs 'fetch' if the repo has been ",
-              "previously cloned."
-            ]
+      [ OA.long "update",
+        OA.metavar "(auto | clean | off)",
+        OA.completeWith ["auto", "clean", "off"],
+        itemizeNoLine
+          [ intro,
+            "auto: Runs fetch.",
+            "clean: Runs clone, overwriting any previous clones.",
+            "off: Does nothing."
+          ]
       ]
+  where
+    intro =
+      mconcat
+        [ "Repository update behavior. We always run 'git clone' if ",
+          "the repo does not exist, hence the options determine what ",
+          "happens when the repo already exists. Defaults to 'auto'."
+        ]
+
+    r =
+      OA.str >>= \case
+        "auto" -> pure RepoUpdateAuto
+        "clean" -> pure RepoUpdateClean
+        "off" -> pure RepoUpdateOff
+        other -> fail $ "Unrecognized update: " ++ other
 
 configParser :: Parser (Maybe (WithDisabled OsPath))
 configParser =
@@ -612,3 +631,31 @@ toChunk i other = fmap (Pretty.indent i) . Chunk.stringChunk $ other
 
 line :: Chunk Doc
 line = Chunk (Just Pretty.softline)
+
+itemize :: NonEmpty String -> Mod OptionFields a
+itemize =
+  OA.helpDoc
+    . Chunk.unChunk
+    . fmap (<> Pretty.line)
+    . itemizeHelper
+
+-- | 'itemize' that does not append a trailing newline. Useful for the last
+-- option in a group, as groups already start a newline.
+itemizeNoLine :: NonEmpty String -> Mod OptionFields a
+itemizeNoLine =
+  OA.helpDoc
+    . Chunk.unChunk
+    . itemizeHelper
+
+itemizeHelper :: NonEmpty String -> Chunk Doc
+itemizeHelper (intro :| ds) =
+  Chunk.vcatChunks
+    ( Chunk.paragraph intro
+        : (Chunk . Just) Pretty.softline
+        : (toItem <$> ds)
+    )
+  where
+    toItem d =
+      fmap (Pretty.nest 2)
+        . Chunk.paragraph
+        $ ("- " <> d)

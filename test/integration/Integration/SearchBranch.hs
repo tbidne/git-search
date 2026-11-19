@@ -4,7 +4,7 @@ module Integration.SearchBranch (tests) where
 
 import Git.Search.Config.Data
   ( Command (SearchBranch),
-    Config (MkConfig, auth, clean, logColor, logLevel, repo),
+    Config (MkConfig, auth, logColor, logLevel, repo, update),
     RepoConfig
       ( MkRepoConfig,
         branches,
@@ -25,6 +25,13 @@ import Git.Search.Config.Data
       ( MkSearchBranchParams,
         baseParams,
         branch
+      ),
+  )
+import Git.Search.Data
+  ( RepoUpdate
+      ( RepoUpdateAuto,
+        RepoUpdateClean,
+        RepoUpdateOff
       ),
   )
 import Git.Search.Logging.Data (LogLevel (LogLevelDebug))
@@ -61,7 +68,6 @@ testSearchBranchDefault = testProp1 desc "testSearchBranchDefault" $ do
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = False,
                 logColor = True,
                 logLevel = Nothing,
                 repo =
@@ -73,7 +79,8 @@ testSearchBranchDefault = testProp1 desc "testSearchBranchDefault" $ do
                       path = (),
                       protocol = (),
                       remoteName = remoteNameDefault
-                    }
+                    },
+                update = RepoUpdateAuto
               }
         }
 
@@ -100,8 +107,8 @@ testSearchBranchArgs = testProp1 desc "testSearchBranchArgs" $ do
     desc = "CLI args config"
 
     args =
-      [ "--clean",
-        "on",
+      [ "--update",
+        "off",
         "--log-color",
         "off",
         "--log-level",
@@ -127,7 +134,6 @@ testSearchBranchArgs = testProp1 desc "testSearchBranchArgs" $ do
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = True,
                 logColor = False,
                 logLevel = Just LogLevelDebug,
                 repo =
@@ -139,7 +145,8 @@ testSearchBranchArgs = testProp1 desc "testSearchBranchArgs" $ do
                       path = (),
                       protocol = (),
                       remoteName = unsafeRemoteName "upstream"
-                    }
+                    },
+                update = RepoUpdateOff
               }
         }
 
@@ -177,7 +184,6 @@ testSearchBranchToml = testProp1 desc "testSearchBranchToml" $ do
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = True,
                 logColor = False,
                 logLevel = Just LogLevelDebug,
                 repo =
@@ -189,7 +195,8 @@ testSearchBranchToml = testProp1 desc "testSearchBranchToml" $ do
                       path = (),
                       protocol = (),
                       remoteName = unsafeRemoteName "upstream"
-                    }
+                    },
+                update = RepoUpdateClean
               }
         }
 
@@ -216,8 +223,8 @@ testSearchBranchArgsOverridesToml = testProp1 desc "testSearchBranchArgsOverride
     desc = "Args overrides toml config"
 
     args =
-      [ "--clean",
-        "off",
+      [ "--update",
+        "auto",
         "--log-color",
         "on",
         "--log-level",
@@ -243,7 +250,6 @@ testSearchBranchArgsOverridesToml = testProp1 desc "testSearchBranchArgsOverride
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = False,
                 logColor = True,
                 logLevel = Nothing,
                 repo =
@@ -255,7 +261,8 @@ testSearchBranchArgsOverridesToml = testProp1 desc "testSearchBranchArgsOverride
                       path = (),
                       protocol = (),
                       remoteName = remoteNameDefault
-                    }
+                    },
+                update = RepoUpdateAuto
               }
         }
 

@@ -4,7 +4,7 @@ module Integration.SearchCommit (tests) where
 
 import Git.Search.Config.Data
   ( Command (SearchCommit),
-    Config (MkConfig, auth, clean, logColor, logLevel, repo),
+    Config (MkConfig, auth, logColor, logLevel, repo, update),
     RepoConfig
       ( MkRepoConfig,
         branches,
@@ -25,6 +25,13 @@ import Git.Search.Config.Data
       ( MkSearchCommitParams,
         baseParams,
         commit
+      ),
+  )
+import Git.Search.Data
+  ( RepoUpdate
+      ( RepoUpdateAuto,
+        RepoUpdateClean,
+        RepoUpdateOff
       ),
   )
 import Git.Search.Logging.Data (LogLevel (LogLevelDebug))
@@ -62,7 +69,6 @@ testSearchCommitDefault = testProp1 desc "testSearchCommitDefault" $ do
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = False,
                 logColor = True,
                 logLevel = Nothing,
                 repo =
@@ -74,7 +80,8 @@ testSearchCommitDefault = testProp1 desc "testSearchCommitDefault" $ do
                       path = (),
                       protocol = (),
                       remoteName = remoteNameDefault
-                    }
+                    },
+                update = RepoUpdateAuto
               }
         }
 
@@ -101,8 +108,8 @@ testSearchCommitArgs = testProp1 desc "testSearchCommitArgs" $ do
     desc = "CLI args config"
 
     args =
-      [ "--clean",
-        "on",
+      [ "--update",
+        "off",
         "--log-color",
         "off",
         "--log-level",
@@ -128,7 +135,6 @@ testSearchCommitArgs = testProp1 desc "testSearchCommitArgs" $ do
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = True,
                 logColor = False,
                 logLevel = Just LogLevelDebug,
                 repo =
@@ -140,7 +146,8 @@ testSearchCommitArgs = testProp1 desc "testSearchCommitArgs" $ do
                       path = (),
                       protocol = (),
                       remoteName = unsafeRemoteName "upstream"
-                    }
+                    },
+                update = RepoUpdateOff
               }
         }
 
@@ -178,7 +185,6 @@ testSearchCommitToml = testProp1 desc "testSearchCommitToml" $ do
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = True,
                 logColor = False,
                 logLevel = Just LogLevelDebug,
                 repo =
@@ -190,7 +196,8 @@ testSearchCommitToml = testProp1 desc "testSearchCommitToml" $ do
                       path = (),
                       protocol = (),
                       remoteName = unsafeRemoteName "upstream"
-                    }
+                    },
+                update = RepoUpdateClean
               }
         }
 
@@ -226,7 +233,6 @@ testSearchCommitTomlRepoDefaults = testProp1 desc "testSearchCommitTomlRepoDefau
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = True,
                 logColor = False,
                 logLevel = Just LogLevelDebug,
                 repo =
@@ -238,7 +244,8 @@ testSearchCommitTomlRepoDefaults = testProp1 desc "testSearchCommitTomlRepoDefau
                       path = (),
                       protocol = (),
                       remoteName = remoteNameDefault
-                    }
+                    },
+                update = RepoUpdateClean
               }
         }
 
@@ -276,7 +283,6 @@ testSearchCommitTomlKey1 = testProp1 desc "testSearchCommitTomlKey1" $ do
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = True,
                 logColor = False,
                 logLevel = Just LogLevelDebug,
                 repo =
@@ -288,7 +294,8 @@ testSearchCommitTomlKey1 = testProp1 desc "testSearchCommitTomlKey1" $ do
                       path = (),
                       protocol = (),
                       remoteName = unsafeRemoteName "upstream1"
-                    }
+                    },
+                update = RepoUpdateClean
               }
         }
 
@@ -326,7 +333,6 @@ testSearchCommitTomlKey2 = testProp1 desc "testSearchCommitTomlKey2" $ do
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = True,
                 logColor = False,
                 logLevel = Just LogLevelDebug,
                 repo =
@@ -338,7 +344,8 @@ testSearchCommitTomlKey2 = testProp1 desc "testSearchCommitTomlKey2" $ do
                       path = (),
                       protocol = (),
                       remoteName = unsafeRemoteName "upstream2"
-                    }
+                    },
+                update = RepoUpdateClean
               }
         }
 
@@ -376,7 +383,6 @@ testSearchCommitTomlKey3 = testProp1 desc "testSearchCommitTomlKey3" $ do
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = True,
                 logColor = False,
                 logLevel = Just LogLevelDebug,
                 repo =
@@ -388,7 +394,8 @@ testSearchCommitTomlKey3 = testProp1 desc "testSearchCommitTomlKey3" $ do
                       path = (),
                       protocol = (),
                       remoteName = unsafeRemoteName "upstream3"
-                    }
+                    },
+                update = RepoUpdateClean
               }
         }
 
@@ -426,7 +433,6 @@ testSearchCommitTomlKeyMiss = testProp1 desc "testSearchCommitTomlKeyMiss" $ do
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = True,
                 logColor = False,
                 logLevel = Just LogLevelDebug,
                 repo =
@@ -438,7 +444,8 @@ testSearchCommitTomlKeyMiss = testProp1 desc "testSearchCommitTomlKeyMiss" $ do
                       path = (),
                       protocol = (),
                       remoteName = remoteNameDefault
-                    }
+                    },
+                update = RepoUpdateClean
               }
         }
 
@@ -465,7 +472,7 @@ testSearchCommitArgsOverridesToml = testProp1 desc "testSearchCommitArgsOverride
     desc = "Args overrides toml config"
 
     args =
-      [ "--clean",
+      [ "--update",
         "off",
         "--log-color",
         "on",
@@ -492,7 +499,6 @@ testSearchCommitArgsOverridesToml = testProp1 desc "testSearchCommitArgsOverride
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = False,
                 logColor = True,
                 logLevel = Nothing,
                 repo =
@@ -504,7 +510,8 @@ testSearchCommitArgsOverridesToml = testProp1 desc "testSearchCommitArgsOverride
                       path = (),
                       protocol = (),
                       remoteName = remoteNameDefault
-                    }
+                    },
+                update = RepoUpdateOff
               }
         }
 

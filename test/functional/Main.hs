@@ -83,7 +83,7 @@ testNixpkgsCommitClone cloneTimeRef = testCase desc $ do
   where
     desc = "Searches commit in nixos/nixpkgs with clean"
 
-    args = "--clean" : "on" : argsToStrs mempty
+    args = "--update" : "clean" : argsToStrs mempty
 
 testNixpkgsCommitFetch :: IORef (Maybe Double) -> TestTree
 testNixpkgsCommitFetch cloneTimeRef = testCase desc $ do

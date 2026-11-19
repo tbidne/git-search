@@ -4,7 +4,7 @@ module Integration.SearchDefaults (tests) where
 
 import Git.Search.Config.Data
   ( Command (SearchBranch, SearchCommit, SearchPullRequest),
-    Config (MkConfig, auth, clean, logColor, logLevel, repo),
+    Config (MkConfig, auth, logColor, logLevel, repo, update),
     RepoConfig
       ( MkRepoConfig,
         branches,
@@ -38,6 +38,7 @@ import Git.Search.Config.Data
         repoName
       ),
   )
+import Git.Search.Data (RepoUpdate (RepoUpdateClean))
 import Git.Search.Logging.Data (LogLevel (LogLevelDebug))
 import Integration.Prelude
 
@@ -77,7 +78,6 @@ testSearchDefaults = testProp1 desc "testSearchDefaults" $ do
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = True,
                 logColor = False,
                 logLevel = Just LogLevelDebug,
                 repo =
@@ -89,7 +89,8 @@ testSearchDefaults = testProp1 desc "testSearchDefaults" $ do
                       path = (),
                       protocol = (),
                       remoteName = MkRepoRemoteName [osstr|upstream|]
-                    }
+                    },
+                update = RepoUpdateClean
               }
         }
 
@@ -111,7 +112,6 @@ testSearchDefaults = testProp1 desc "testSearchDefaults" $ do
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = True,
                 logColor = False,
                 logLevel = Just LogLevelDebug,
                 repo =
@@ -123,7 +123,8 @@ testSearchDefaults = testProp1 desc "testSearchDefaults" $ do
                       path = (),
                       protocol = (),
                       remoteName = remoteNameDefault
-                    }
+                    },
+                update = RepoUpdateClean
               }
         }
 

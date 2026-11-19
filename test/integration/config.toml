@@ -56,4 +56,4 @@ log-color = 'off'
 log-level = 'debug'
 
 [miscellaneous]
-clean = 'on'
+update = 'clean'

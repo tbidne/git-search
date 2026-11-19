@@ -4,7 +4,7 @@ module Integration.SearchPullRequest (tests) where
 
 import Git.Search.Config.Data
   ( Command (SearchPullRequest),
-    Config (MkConfig, auth, clean, logColor, logLevel, repo),
+    Config (MkConfig, auth, logColor, logLevel, repo, update),
     RepoConfig
       ( MkRepoConfig,
         branches,
@@ -26,6 +26,13 @@ import Git.Search.Config.Data
         baseParams,
         prNum,
         repoName
+      ),
+  )
+import Git.Search.Data
+  ( RepoUpdate
+      ( RepoUpdateAuto,
+        RepoUpdateClean,
+        RepoUpdateOff
       ),
   )
 import Git.Search.Logging.Data (LogLevel (LogLevelDebug))
@@ -60,7 +67,6 @@ testSearchPullRequestDefault = testProp1 desc "testSearchPullRequestDefault" $ d
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = False,
                 logColor = True,
                 logLevel = Nothing,
                 repo =
@@ -72,7 +78,8 @@ testSearchPullRequestDefault = testProp1 desc "testSearchPullRequestDefault" $ d
                       path = (),
                       protocol = (),
                       remoteName = remoteNameDefault
-                    }
+                    },
+                update = RepoUpdateAuto
               }
         }
 
@@ -100,8 +107,8 @@ testSearchPullRequestArgs = testProp1 desc "testSearchPullRequestArgs" $ do
     desc = "CLI args config"
 
     args =
-      [ "--clean",
-        "on",
+      [ "--update",
+        "off",
         "--log-color",
         "off",
         "--log-level",
@@ -123,7 +130,6 @@ testSearchPullRequestArgs = testProp1 desc "testSearchPullRequestArgs" $ do
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = True,
                 logColor = False,
                 logLevel = Just LogLevelDebug,
                 repo =
@@ -135,7 +141,8 @@ testSearchPullRequestArgs = testProp1 desc "testSearchPullRequestArgs" $ do
                       path = (),
                       protocol = (),
                       remoteName = unsafeRemoteName "upstream"
-                    }
+                    },
+                update = RepoUpdateOff
               }
         }
 
@@ -180,7 +187,6 @@ testSearchPullRequestToml = testProp1 desc "testSearchPullRequestToml" $ do
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = True,
                 logColor = False,
                 logLevel = Just LogLevelDebug,
                 repo =
@@ -192,7 +198,8 @@ testSearchPullRequestToml = testProp1 desc "testSearchPullRequestToml" $ do
                       path = (),
                       protocol = (),
                       remoteName = unsafeRemoteName "upstream"
-                    }
+                    },
+                update = RepoUpdateClean
               }
         }
 
@@ -220,7 +227,7 @@ testSearchPullRequestArgsOverridesToml = testProp1 desc "testSearchPullRequestAr
     desc = "Args overrides toml config"
 
     args =
-      [ "--clean",
+      [ "--update",
         "off",
         "--log-color",
         "on",
@@ -247,7 +254,6 @@ testSearchPullRequestArgsOverridesToml = testProp1 desc "testSearchPullRequestAr
         { coreConfig =
             MkConfig
               { auth = Nothing,
-                clean = False,
                 logColor = True,
                 logLevel = Nothing,
                 repo =
@@ -259,7 +265,8 @@ testSearchPullRequestArgsOverridesToml = testProp1 desc "testSearchPullRequestAr
                       path = (),
                       protocol = (),
                       remoteName = remoteNameDefault
-                    }
+                    },
+                update = RepoUpdateOff
               }
         }
 

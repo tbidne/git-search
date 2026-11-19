@@ -10,7 +10,7 @@ import Data.List qualified as L
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Git.Search.Config.Data
-  ( Config (MkConfig, auth, clean, logColor, logLevel, repo),
+  ( Config (MkConfig, auth, logColor, logLevel, repo, update),
     RepoConfig
       ( MkRepoConfig,
         branches,
@@ -45,7 +45,7 @@ instance DecodeTOML Toml where
   tomlDecoder = do
     (logColor, logLevel) <- decodeLogging
     repo <- decodeRepoMap
-    clean <- decodeMisc
+    update <- decodeMisc
     repoDefaults <- decodeRepoDefaults
     searchDefaults <- decodeSearchDefaults
 
@@ -54,10 +54,10 @@ instance DecodeTOML Toml where
         { coreConfig =
             MkConfig
               { auth = (),
-                clean,
                 logColor,
                 logLevel,
-                repo
+                repo,
+                update
               },
           repoDefaults,
           searchDefaults
@@ -140,7 +140,7 @@ instance DecodeTOML Toml where
       decodeMisc =
         fmap (fromMaybe Nothing)
           $ flip getFieldOptWith "miscellaneous"
-          $ getFieldOptWith decodeSwitch "clean"
+          $ getFieldOptWith tomlDecoder "update"
 
 decodeSwitch :: Decoder Bool
 decodeSwitch =

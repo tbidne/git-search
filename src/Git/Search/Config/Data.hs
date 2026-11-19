@@ -58,6 +58,7 @@ import Git.Search.Data
     RepoPath,
     RepoRemoteName,
     RepoRemoteUri,
+    RepoUpdate,
   )
 import Git.Search.Logging.Data (LogLevel)
 import Git.Search.Prelude
@@ -343,20 +344,20 @@ type Config :: ConfigPhase -> Type
 data Config p = MkConfig
   { -- | Github auth, for CI.
     auth :: AuthF p,
-    -- | Performs a clean clone of the repo. Otherwise runs 'fetch' if the
-    -- repo exists.
-    clean :: ConfigF p Bool,
     -- | Log colors.
     logColor :: ConfigF p Bool,
     -- | Logging.
     logLevel :: ConfigWdMaybeF p LogLevel,
     -- | Repo params.
-    repo :: RepoF p
+    repo :: RepoF p,
+    -- | Repo update behavior.
+    update :: ConfigF p RepoUpdate
   }
 
 deriving stock instance
   ( Eq (AuthF p),
     Eq (ConfigF p Bool),
+    Eq (ConfigF p RepoUpdate),
     Eq (ConfigWdMaybeF p LogLevel),
     Eq (RepoF p)
   ) =>
@@ -365,6 +366,7 @@ deriving stock instance
 deriving stock instance
   ( Show (AuthF p),
     Show (ConfigF p Bool),
+    Show (ConfigF p RepoUpdate),
     Show (ConfigWdMaybeF p LogLevel),
     Show (RepoF p)
   ) =>

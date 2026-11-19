@@ -37,6 +37,7 @@ import Git.Search.Data
     RepoName,
     RepoPath,
     RepoRemoteUri,
+    RepoUpdate (RepoUpdateAuto, RepoUpdateClean, RepoUpdateOff),
   )
 import Git.Search.Logging qualified as Logging
 import Git.Search.Prelude
@@ -295,16 +296,17 @@ cloneRepo repoPath repoSrc = do
 
   if exists
     then do
-      if env ^. #coreConfig % #clean
-        then do
-          -- 1. Repo exists but clean is active: delete and clone.
+      case env ^. #coreConfig % #update of
+        -- 1. Repo exists and normal behavior: fetch.
+        RepoUpdateAuto -> runFetch
+        -- 2. Repo exists but 'clean' is active: delete and clone.
+        RepoUpdateClean -> do
           PW.removeDirectoryRecursive repoPathOsP
           runClone
-        else
-          -- 2. Repo exists but clean is not active: update.
-          runFetch
+        -- 3. Repo exists but 'off' is active: skip update.
+        RepoUpdateOff -> Logging.logDebug "Skipping fetch."
     else
-      -- 3. Repo does not exist: clone.
+      -- 4. Repo does not exist: clone.
       runClone
   where
     runClone = do

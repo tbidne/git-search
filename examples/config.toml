@@ -102,6 +102,11 @@ log-level = 'debug'
 # Miscellaneous options.
 [miscellaneous]
 
-# Always performs a clean clone. Not recommended for performance. Can be
-# 'on' or 'off'.
-clean = 'off'
+# Repository update behavior. We always run 'git clone' if the repo does not
+# exist, hence the options determine what happens when the repo already exists.
+# Defaults to 'auto'.
+#
+# auto: Runs fetch.
+# clean: Runs clone, overwriting any previous clones.
+# off: Does nothing.
+update = 'auto'

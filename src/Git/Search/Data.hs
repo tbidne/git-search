@@ -12,6 +12,7 @@ module Git.Search.Data
     RepoRemoteName (..),
     RepoRemoteUri (..),
     RepoName (..),
+    RepoUpdate (..),
   )
 where
 
@@ -20,6 +21,24 @@ import Git.Search.Config.Toml.Utils
     PathAbsDirToml (MkPathAbsDirToml),
   )
 import Git.Search.Prelude
+
+-- | Determines repo update behavior.
+data RepoUpdate
+  = -- | Fetches if the repo exists, otherwise clones.
+    RepoUpdateAuto
+  | -- | Cleans the repo i.e. always clones.
+    RepoUpdateClean
+  | -- | Skips clone/fetch if the repo exists, otherwise cleans.
+    RepoUpdateOff
+  deriving stock (Eq, Show)
+
+instance DecodeTOML RepoUpdate where
+  tomlDecoder =
+    tomlDecoder @String >>= \case
+      "auto" -> pure RepoUpdateAuto
+      "clean" -> pure RepoUpdateClean
+      "off" -> pure RepoUpdateOff
+      other -> fail $ "Unrecognized update: " ++ other
 
 data Protocol
   = ProtocolHttps

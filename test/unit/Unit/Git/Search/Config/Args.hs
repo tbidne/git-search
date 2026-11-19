@@ -12,7 +12,7 @@ import Git.Search.Config.Data
         SearchDefaults,
         SearchPullRequest
       ),
-    Config (MkConfig, auth, clean, logColor, logLevel, repo),
+    Config (MkConfig, auth, logColor, logLevel, repo, update),
     RepoConfig
       ( MkRepoConfig,
         branches,
@@ -32,6 +32,7 @@ import Git.Search.Data
   ( Branch (MkBranch),
     Domain (MkDomain),
     Protocol (ProtocolHttps, ProtocolSsh),
+    RepoUpdate (RepoUpdateAuto, RepoUpdateClean, RepoUpdateOff),
   )
 import Git.Search.Logging.Data
   ( LogLevel (LogLevelCommand, LogLevelDebug, LogLevelInfo, LogLevelWarn),
@@ -520,41 +521,57 @@ miscTests :: TestTree
 miscTests =
   testGroup
     "Miscellaneous options"
-    [ testCleanOn,
-      testCleanOff,
+    [ testUpdateAuto,
+      testUpdateClean,
+      testUpdateOff,
       testConfig,
       testConfigOff
     ]
 
-testCleanOn :: TestTree
-testCleanOn = testProp1 desc "testCleanOn" $ do
+testUpdateAuto :: TestTree
+testUpdateAuto = testProp1 desc "testUpdateAuto" $ do
   testGetArgs e args
   where
-    desc = "Parses --testClean on"
+    desc = "Parses --update auto"
 
     args =
-      [ "--clean",
-        "on",
+      [ "--update",
+        "auto",
         "search-commit",
         commitStr
       ]
 
-    e = set' (#coreConfig % #clean) (Just True) defArgs
+    e = set' (#coreConfig % #update) (Just RepoUpdateAuto) defArgs
 
-testCleanOff :: TestTree
-testCleanOff = testProp1 desc "testCleanOff" $ do
+testUpdateClean :: TestTree
+testUpdateClean = testProp1 desc "testUpdateClean" $ do
   testGetArgs e args
   where
-    desc = "Parses --testCleanOff"
+    desc = "Parses --update clean"
 
     args =
-      [ "--clean",
+      [ "--update",
+        "clean",
+        "search-commit",
+        commitStr
+      ]
+
+    e = set' (#coreConfig % #update) (Just RepoUpdateClean) defArgs
+
+testUpdateOff :: TestTree
+testUpdateOff = testProp1 desc "testCleanOff" $ do
+  testGetArgs e args
+  where
+    desc = "Parses --update off"
+
+    args =
+      [ "--update",
         "off",
         "search-commit",
         commitStr
       ]
 
-    e = set' (#coreConfig % #clean) (Just False) defArgs
+    e = set' (#coreConfig % #update) (Just RepoUpdateOff) defArgs
 
 testConfig :: TestTree
 testConfig = testProp1 desc "testConfig" $ do
@@ -608,7 +625,6 @@ defArgs =
       coreConfig =
         MkConfig
           { auth = Nothing,
-            clean = Nothing,
             logColor = Nothing,
             logLevel = Nothing,
             repo =
@@ -620,7 +636,8 @@ defArgs =
                   path = Nothing,
                   protocol = Nothing,
                   remoteName = Nothing
-                }
+                },
+            update = Nothing
           }
     }
 

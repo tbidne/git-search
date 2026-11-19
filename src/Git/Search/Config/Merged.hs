@@ -11,7 +11,7 @@ where
 import Data.Map.Strict qualified as Map
 import Git.Search.Config.Args (Args)
 import Git.Search.Config.Data
-  ( Config (MkConfig, auth, clean, logColor, logLevel, repo),
+  ( Config (MkConfig, auth, logColor, logLevel, repo, update),
     RepoConfig
       ( MkRepoConfig,
         branches,
@@ -38,6 +38,7 @@ import Git.Search.Data
   ( Domain (MkDomain),
     Protocol (ProtocolHttps),
     RepoName,
+    RepoUpdate (RepoUpdateAuto),
   )
 import Git.Search.Prelude
 
@@ -77,7 +78,6 @@ mergeConfig args mToml =
       Nothing ->
         MkConfig
           { auth = args ^. #coreConfig % #auth,
-            clean = mergeBoolFalse (args ^. #coreConfig % #clean) Nothing,
             logColor = mergeBoolTrue (args ^. #coreConfig % #logColor) Nothing,
             logLevel =
               mergeMaybe
@@ -113,15 +113,12 @@ mergeConfig args mToml =
                       (view #remoteName)
                       (args ^. #coreConfig % #repo % #remoteName)
                       Nothing
-                }
+                },
+            update = mergeUpdate (args ^. #coreConfig % #update) Nothing
           }
       Just toml ->
         MkConfig
           { auth = args ^. #coreConfig % #auth,
-            clean =
-              mergeBoolFalse
-                (args ^. #coreConfig % #clean)
-                (toml ^. #coreConfig % #clean),
             logColor =
               mergeBoolTrue
                 (args ^. #coreConfig % #logColor)
@@ -160,13 +157,12 @@ mergeConfig args mToml =
                       (view #remoteName)
                       (args ^. #coreConfig % #repo % #remoteName)
                       mRepo
-                }
+                },
+            update =
+              mergeUpdate
+                (args ^. #coreConfig % #update)
+                (toml ^. #coreConfig % #update)
           }
-
-mergeBoolFalse :: Maybe Bool -> Maybe Bool -> Bool
-mergeBoolFalse (Just b) _ = b
-mergeBoolFalse Nothing (Just b) = b
-mergeBoolFalse Nothing Nothing = False
 
 mergeBoolTrue :: Maybe Bool -> Maybe Bool -> Bool
 mergeBoolTrue (Just b) _ = b
@@ -203,6 +199,14 @@ mergeWD ::
 mergeWD defA _ (Just Disabled) _ = defA
 mergeWD _ _ (Just (With x)) _ = x
 mergeWD defA toA Nothing mRepo = fromMaybe defA (mRepo >>= toA)
+
+mergeUpdate ::
+  Maybe RepoUpdate ->
+  Maybe RepoUpdate ->
+  RepoUpdate
+mergeUpdate (Just u1) _ = u1
+mergeUpdate Nothing (Just u2) = u2
+mergeUpdate Nothing Nothing = RepoUpdateAuto
 
 defDomain :: Domain
 defDomain = MkDomain [osstr|github.com|]
