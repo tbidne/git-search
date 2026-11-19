@@ -42,6 +42,7 @@ import Git.Search.Logging qualified as Logging
 import Git.Search.Prelude
 import Git.Search.Process qualified as Process
 import Network.HTTP.Client qualified as Http
+import System.OsString (OsChar)
 import System.OsString qualified as OsStr
 
 -- | Deletes the cache.
@@ -207,7 +208,7 @@ prToCommit prNum repoName = do
         else
           Logging.logWarn $ "Pull request " <> prStr <> " is closed but unmerged."
 
-  let commitStr = pr ^. #head % #sha
+  let commitStr = T.strip $ pr ^. #head % #sha
 
   Logging.logDebug $ "Found commit (" <> showt (pr ^. #commits) <> "): " <> commitStr
 
@@ -348,42 +349,47 @@ findBranches ::
   RepoPath ->
   Eff es (List Text)
 findBranches eBranchCommit repoPath = do
-  env <- ask @Env
-
-  commit <- case eBranchCommit of
-    Left b -> branchToCommit b repoPath
-    Right c -> pure c
-
-  let gitDefArgs =
-        [ [osstr|branch|],
-          [osstr|-r|],
-          [osstr|--contains|],
-          commit ^. #unCommit
-        ]
-
-      gitArgs branches = case branches of
-        [] -> gitDefArgs
-        bs@(_ : _) -> gitBranchArgs bs
-
-      gitBranchArgs bs = gitDefArgs ++ ([osstr|--list|] : bs)
-
-      hashStr = decodeLenientt $ commit ^. #unCommit
-
-  Logging.logInfo $ "Searching for commit " <> hashStr <> "..."
-
-  verifyCommitExists commit repoPath
-
-  PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
-    (timeStr, out) <-
-      withTiming
-        . Process.runGitOut
-        . gitArgs
-        . view (#coreConfig % #repo % #branches)
-        $ env
-    Logging.logInfo $ "Search finished: " <> timeStr
-    toText <$> decodeThrowM out
+  case eBranchCommit of
+    Left b ->
+      branchToCommit b repoPath >>= \case
+        Nothing -> pure []
+        Just c -> onCommit c
+    Right c -> onCommit c
   where
     toText = fmap T.strip . T.lines . pack
+
+    onCommit commit = do
+      env <- ask @Env
+
+      let gitDefArgs =
+            [ [osstr|branch|],
+              [osstr|-r|],
+              [osstr|--contains|],
+              commit ^. #unCommit
+            ]
+
+          gitArgs branches = case branches of
+            [] -> gitDefArgs
+            bs@(_ : _) -> gitBranchArgs bs
+
+          gitBranchArgs bs = gitDefArgs ++ ([osstr|--list|] : bs)
+
+          hashStr = decodeLenientt $ commit ^. #unCommit
+
+      Logging.logInfo $ "Searching for commit " <> hashStr <> "..."
+
+      commitExists commit repoPath >>= \case
+        False -> pure []
+        True ->
+          PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
+            (timeStr, out) <-
+              withTiming
+                . Process.runGitOut
+                . gitArgs
+                . view (#coreConfig % #repo % #branches)
+                $ env
+            Logging.logInfo $ "Search finished: " <> timeStr
+            toText <$> decodeThrowM out
 
 branchToCommit ::
   ( HasCallStack,
@@ -395,23 +401,18 @@ branchToCommit ::
   ) =>
   Branch ->
   RepoPath ->
-  Eff es Commit
+  Eff es (Maybe Commit)
 branchToCommit branch repoPath = do
-  remoteName <- asks @Env (view (#coreConfig % #repo % #remoteName))
-
   -- Unless the given branch has a '/' in it, we need to qualify it with
   -- the remote name (e.g. 'origin').
   let branchOsStr = branch ^. #unBranch
 
-      qualBranch =
-        if OsStr.elem slashChar branchOsStr
-          then branchOsStr
-          else
-            remoteName
-              ^. #unRepoRemoteName
-              <> OsStr.cons slashChar branchOsStr
+  qualBranch <-
+    if OsStr.elem slashChar branchOsStr
+      then pure branchOsStr
+      else prependRemoteName branchOsStr
 
-      qualBranchTxt = decodeLenientt qualBranch
+  let qualBranchTxt = decodeLenientt qualBranch
 
       gitArgs =
         [ [osstr|rev-parse|],
@@ -420,16 +421,14 @@ branchToCommit branch repoPath = do
 
   Logging.logInfo $ "Searching for branch " <> qualBranchTxt <> "..."
 
-  verifyBranchExists (MkBranch qualBranch) repoPath
+  branchExists (MkBranch qualBranch) repoPath >>= \case
+    False -> pure Nothing
+    True ->
+      fmap (Just . MkCommit)
+        $ PW.withCurrentDirectory (repoPathToOsP repoPath)
+        $ Process.runGitOut gitArgs
 
-  PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
-    fmap MkCommit
-      . Process.runGitOut
-      $ gitArgs
-  where
-    slashChar = OsStr.unsafeFromChar '/'
-
-verifyBranchExists ::
+branchExists ::
   ( HasCallStack,
     PathWriter :> es,
     Process :> es,
@@ -439,10 +438,10 @@ verifyBranchExists ::
   ) =>
   Branch ->
   RepoPath ->
-  Eff es ()
-verifyBranchExists branch = verifyGitObjExists "Branch" (branch ^. #unBranch)
+  Eff es Bool
+branchExists branch = gitObjExists "Branch" (branch ^. #unBranch)
 
-verifyCommitExists ::
+commitExists ::
   ( HasCallStack,
     PathWriter :> es,
     Process :> es,
@@ -452,10 +451,21 @@ verifyCommitExists ::
   ) =>
   Commit ->
   RepoPath ->
-  Eff es ()
-verifyCommitExists commit = verifyGitObjExists "Commit" (commit ^. #unCommit)
+  Eff es Bool
+commitExists commit = gitObjExists "Commit" (commit ^. #unCommit)
 
-verifyGitObjExists ::
+-- | Returns true iff the git object exists. Logs a warning if not.
+-- We choose to warn rather than fail because there are some situations where
+-- non-existence is expected e.g. if we are searching an unmerged PR from a
+-- fork.
+--
+-- The commit will exist on the fork but likely will not exist in our repo,
+-- hence 'git cat-file' will fail. It is better to simply log this then
+-- throw an exception, as the latter is misleading.
+--
+-- This does mean that actual user errors will also be warnings
+-- (e.g. direct searching for wrong branch/commit), but that's okay.
+gitObjExists ::
   ( HasCallStack,
     PathWriter :> es,
     Process :> es,
@@ -466,22 +476,22 @@ verifyGitObjExists ::
   Text ->
   OsString ->
   RepoPath ->
-  Eff es ()
-verifyGitObjExists tyStr obj repoPath = do
+  Eff es Bool
+gitObjExists tyStr obj repoPath = do
   (ec, _, _) <-
     PW.withCurrentDirectory repoOsP $ Process.runGit gitArgs
   case ec of
-    ExitSuccess -> pure ()
+    ExitSuccess -> pure True
     ExitFailure _ -> do
       let msg =
             mconcat
               [ tyStr,
                 " '",
                 decodeLenientt obj,
-                "' does not exist."
+                "' not found."
               ]
-      Logging.logError msg
-      throwText msg
+      Logging.logWarn msg
+      pure False
   where
     repoOsP = repoPathToOsP repoPath
 
@@ -519,3 +529,18 @@ withTiming_ = fmap fst . withTiming
 
 repoPathToOsP :: RepoPath -> OsPath
 repoPathToOsP = toOsPath . view #unRepoPath
+
+prependRemoteName ::
+  (Reader Env :> es) =>
+  OsString ->
+  Eff es OsString
+prependRemoteName osStr = do
+  remoteName <- asks @Env (view (#coreConfig % #repo % #remoteName))
+
+  pure
+    $ remoteName
+    ^. #unRepoRemoteName
+    <> OsStr.cons slashChar osStr
+
+slashChar :: OsChar
+slashChar = OsStr.unsafeFromChar '/'
