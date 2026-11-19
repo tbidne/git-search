@@ -18,6 +18,7 @@ module Integration.Prelude
     assertExStr,
 
     -- * Misc
+    remoteNameDefault,
 
     -- ** Directories
     xdgCacheDir,
@@ -31,6 +32,7 @@ module Integration.Prelude
     unsafeOsStrs,
 
     -- ** Core types
+    unsafeBranch,
     unsafeCommit,
     unsafePathAbsDir,
     unsafeRemoteName,
@@ -49,7 +51,8 @@ import Git.Search.Config as X (Env (MkEnv, coreConfig))
 import Git.Search.Config.Data (Command)
 import Git.Search.Config.Phase as X (ConfigPhase (ConfigPhaseEnv))
 import Git.Search.Data as X
-  ( Commit (MkCommit),
+  ( Branch (MkBranch),
+    Commit (MkCommit),
     RepoName (MkRepoName),
     RepoPath (MkRepoPath),
     RepoRemoteName (MkRepoRemoteName),
@@ -148,6 +151,9 @@ runPW = interpret_ $ \case
 unsafeOsStrs :: List String -> List OsString
 unsafeOsStrs = fmap unsafeEncode
 
+unsafeBranch :: String -> Branch
+unsafeBranch = MkBranch . unsafeEncode
+
 unsafeCommit :: String -> Commit
 unsafeCommit = MkCommit . unsafeEncode
 
@@ -169,6 +175,9 @@ unsafeRepoName = MkRepoName . unsafeEncode
 
 unsafeRepoPath :: String -> RepoPath
 unsafeRepoPath = MkRepoPath . unsafePathAbsDir
+
+remoteNameDefault :: RepoRemoteName
+remoteNameDefault = MkRepoRemoteName [osstr|origin|]
 
 assertExStr :: (Exception e) => String -> e -> PropertyT IO ()
 assertExStr expected ex = do

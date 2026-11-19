@@ -73,7 +73,7 @@ testSearchCommitDefault = testProp1 desc "testSearchCommitDefault" $ do
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = Nothing
+                      remoteName = remoteNameDefault
                     }
               }
         }
@@ -139,7 +139,7 @@ testSearchCommitArgs = testProp1 desc "testSearchCommitArgs" $ do
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = Just $ unsafeRemoteName "upstream"
+                      remoteName = unsafeRemoteName "upstream"
                     }
               }
         }
@@ -189,7 +189,7 @@ testSearchCommitToml = testProp1 desc "testSearchCommitToml" $ do
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = Just $ unsafeRemoteName "upstream"
+                      remoteName = unsafeRemoteName "upstream"
                     }
               }
         }
@@ -237,7 +237,7 @@ testSearchCommitTomlRepoDefaults = testProp1 desc "testSearchCommitTomlRepoDefau
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = Nothing
+                      remoteName = remoteNameDefault
                     }
               }
         }
@@ -287,7 +287,7 @@ testSearchCommitTomlKey1 = testProp1 desc "testSearchCommitTomlKey1" $ do
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = Just $ unsafeRemoteName "upstream1"
+                      remoteName = unsafeRemoteName "upstream1"
                     }
               }
         }
@@ -337,7 +337,7 @@ testSearchCommitTomlKey2 = testProp1 desc "testSearchCommitTomlKey2" $ do
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = Just $ unsafeRemoteName "upstream2"
+                      remoteName = unsafeRemoteName "upstream2"
                     }
               }
         }
@@ -387,7 +387,7 @@ testSearchCommitTomlKey3 = testProp1 desc "testSearchCommitTomlKey3" $ do
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = Just $ unsafeRemoteName "upstream3"
+                      remoteName = unsafeRemoteName "upstream3"
                     }
               }
         }
@@ -437,7 +437,7 @@ testSearchCommitTomlKeyMiss = testProp1 desc "testSearchCommitTomlKeyMiss" $ do
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = Nothing
+                      remoteName = remoteNameDefault
                     }
               }
         }
@@ -503,7 +503,7 @@ testSearchCommitArgsOverridesToml = testProp1 desc "testSearchCommitArgsOverride
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = Nothing
+                      remoteName = remoteNameDefault
                     }
               }
         }

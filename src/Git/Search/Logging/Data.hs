@@ -15,6 +15,7 @@ data LogLevel
   | LogLevelInfo
   | LogLevelCommand
   | LogLevelWarn
+  | LogLevelError
   deriving stock (Eq, Ord, Show)
 
 instance DecodeTOML LogLevel where
@@ -24,6 +25,7 @@ instance DecodeTOML LogLevel where
       "info" -> pure LogLevelInfo
       "cmd" -> pure LogLevelCommand
       "warn" -> pure LogLevelWarn
+      "error" -> pure LogLevelError
       other -> fail $ "Unrecognized log-level" ++ show other
 
 mkLevelLog ::
@@ -57,6 +59,7 @@ levelToHeader = \case
   LogLevelInfo -> "[Info]:  "
   LogLevelCommand -> "[Cmd]:   "
   LogLevelWarn -> "[Warn]:  "
+  LogLevelError -> "[Error]:  "
 
 levelToColor :: LogLevel -> Builder
 levelToColor = \case
@@ -64,6 +67,7 @@ levelToColor = \case
   LogLevelInfo -> blue
   LogLevelCommand -> magenta
   LogLevelWarn -> yellow
+  LogLevelError -> red
 
 brackets :: Builder -> Builder
 brackets s = "[" <> s <> "]"
@@ -76,6 +80,9 @@ green = "\ESC[32m"
 
 magenta :: Builder
 magenta = "\ESC[35m"
+
+red :: Builder
+red = "\ESC[31m"
 
 yellow :: Builder
 yellow = "\ESC[33m"

@@ -5,6 +5,7 @@ module Git.Search.Data
   ( Protocol (..),
     _ProtocolHttps,
     _ProtocolSsh,
+    Branch (..),
     Commit (..),
     Domain (..),
     RepoPath (..),
@@ -31,6 +32,11 @@ instance DecodeTOML Protocol where
       "https" -> pure ProtocolHttps
       "ssh" -> pure ProtocolSsh
       other -> fail $ "Unknown protocol: " ++ other
+
+-- | Branch name.
+newtype Branch = MkBranch {unBranch :: OsString}
+  deriving stock (Eq, Ord, Show)
+  deriving (DecodeTOML) via OsStringToml
 
 -- | Commit hash.
 newtype Commit = MkCommit {unCommit :: OsString}
@@ -63,6 +69,7 @@ newtype RepoName = MkRepoName {unRepoName :: OsString}
   deriving (DecodeTOML) via OsStringToml
 
 makePrisms ''Protocol
+makeFieldLabelsNoPrefix ''Branch
 makeFieldLabelsNoPrefix ''Commit
 makeFieldLabelsNoPrefix ''Domain
 makeFieldLabelsNoPrefix ''RepoPath

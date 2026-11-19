@@ -3,7 +3,7 @@
 module Integration.SearchDefaults (tests) where
 
 import Git.Search.Config.Data
-  ( Command (SearchCommit, SearchPullRequest),
+  ( Command (SearchBranch, SearchCommit, SearchPullRequest),
     Config (MkConfig, auth, clean, logColor, logLevel, repo),
     RepoConfig
       ( MkRepoConfig,
@@ -20,6 +20,11 @@ import Git.Search.Config.Data
         repoPath,
         repoSrc,
         shouldClone
+      ),
+    SearchBranchParams
+      ( MkSearchBranchParams,
+        baseParams,
+        branch
       ),
     SearchCommitParams
       ( MkSearchCommitParams,
@@ -47,10 +52,10 @@ testSearchDefaults :: TestTree
 testSearchDefaults = testProp1 desc "testSearchDefaults" $ do
   results <- liftIO $ runEnvConfigMany args
 
-  ((env1, cmd1), (env2, cmd2)) <- case results of
-    [x1, x2] -> pure (x1, x2)
+  ((env1, cmd1), (env2, cmd2), (env3, cmd3)) <- case results of
+    [x1, x2, x3] -> pure (x1, x2, x3)
     other -> do
-      annotate "Expected exactly 2 elements"
+      annotate "Expected exactly 3 elements"
       annotateShow other
       failure
 
@@ -59,6 +64,9 @@ testSearchDefaults = testProp1 desc "testSearchDefaults" $ do
 
   expectedEnv2 === env2
   expectedCmd2 === cmd2
+
+  expectedEnv3 === env3
+  expectedCmd3 === cmd3
   where
     desc = "Default config"
 
@@ -80,7 +88,7 @@ testSearchDefaults = testProp1 desc "testSearchDefaults" $ do
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = Just (MkRepoRemoteName [osstr|upstream|])
+                      remoteName = MkRepoRemoteName [osstr|upstream|]
                     }
               }
         }
@@ -114,13 +122,28 @@ testSearchDefaults = testProp1 desc "testSearchDefaults" $ do
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = Nothing
+                      remoteName = remoteNameDefault
                     }
               }
         }
 
     expectedCmd2 :: Command ConfigPhaseEnv
     expectedCmd2 =
+      SearchBranch
+        $ MkSearchBranchParams
+          { baseParams =
+              MkSearchBaseParams
+                { repoPath = MkRepoPath $ root <</>> [reldirPathSep|.cache/git-search/org/repo2/|],
+                  repoSrc = unsafeRemoteUri "https://github.com/org/repo2",
+                  shouldClone = True
+                },
+            branch = MkBranch [osstr|master|]
+          }
+
+    expectedEnv3 = expectedEnv2
+
+    expectedCmd3 :: Command ConfigPhaseEnv
+    expectedCmd3 =
       SearchPullRequest
         $ MkSearchPullRequestParams
           { baseParams =

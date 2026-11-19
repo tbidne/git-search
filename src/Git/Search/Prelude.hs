@@ -5,12 +5,16 @@
 module Git.Search.Prelude
   ( module X,
 
+    -- * Sums
+    Either3 (..),
+
     -- * Exceptions
     mapThrowLeft,
     throwLeft,
 
     -- * Text
     decodeLenientt,
+    displayExceptiont,
     showt,
 
     -- * Dev
@@ -182,6 +186,12 @@ import System.Exit as X (ExitCode (ExitFailure, ExitSuccess))
 import System.IO as X (IO)
 import TOML as X (DecodeTOML (tomlDecoder), getFieldOptWith, getFieldWith)
 
+data Either3 e1 e2 e3
+  = E31 e1
+  | E32 e2
+  | E33 e3
+  deriving stock (Eq, Show)
+
 mapThrowLeft :: (Exception e2, MonadThrow m) => (e1 -> e2) -> Either e1 a -> m a
 mapThrowLeft f = throwLeft . first f
 
@@ -198,3 +208,6 @@ todo = raise# (errorCallWithCallStackException "Prelude.todo: not yet implemente
 
 decodeLenientt :: OsString -> Text
 decodeLenientt = pack . decodeLenient
+
+displayExceptiont :: (Exception e) => e -> Text
+displayExceptiont = pack . displayException

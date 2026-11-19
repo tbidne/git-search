@@ -15,7 +15,13 @@ import Effectful.Optparse.Completer qualified as EOC
 import Effectful.Optparse.Static qualified as EOA
 import Git.Search.Config.Args.TH qualified as TH
 import Git.Search.Config.Data
-  ( Command (DeleteCache, SearchCommit, SearchDefaults, SearchPullRequest),
+  ( Command
+      ( DeleteCache,
+        SearchBranch,
+        SearchCommit,
+        SearchDefaults,
+        SearchPullRequest
+      ),
     Config (MkConfig, auth, clean, logColor, logLevel, repo),
     DeleteCacheF,
     RepoConfig
@@ -28,6 +34,7 @@ import Git.Search.Config.Data
         protocol,
         remoteName
       ),
+    SearchBranchF,
     SearchCommitF,
     SearchDefaultsF,
     SearchPullRequestF,
@@ -36,7 +43,8 @@ import Git.Search.Config.Phase (ConfigPhase (ConfigPhaseArgs1))
 import Git.Search.Config.WithDisabled (WithDisabled)
 import Git.Search.Config.WithDisabled qualified as WD
 import Git.Search.Data
-  ( Commit (MkCommit),
+  ( Branch (MkBranch),
+    Commit (MkCommit),
     Domain (MkDomain),
     Protocol (ProtocolHttps, ProtocolSsh),
     RepoName (MkRepoName),
@@ -46,6 +54,7 @@ import Git.Search.Logging.Data
   ( LogLevel
       ( LogLevelCommand,
         LogLevelDebug,
+        LogLevelError,
         LogLevelInfo,
         LogLevelWarn
       ),
@@ -103,6 +112,7 @@ makeFieldLabelsNoPrefix ''VersionInfo
 
 deriving stock instance
   ( Eq (DeleteCacheF p),
+    Eq (SearchBranchF p),
     Eq (SearchCommitF p),
     Eq (SearchDefaultsF p),
     Eq (SearchPullRequestF p)
@@ -111,6 +121,7 @@ deriving stock instance
 
 deriving stock instance
   ( Show (DeleteCacheF p),
+    Show (SearchBranchF p),
     Show (SearchCommitF p),
     Show (SearchDefaultsF p),
     Show (SearchPullRequestF p)
@@ -244,8 +255,8 @@ logLevelParser =
       r
     $ mconcat
       [ OA.long "log-level",
-        OA.metavar "(debug | info | cmd | warn | off)",
-        OA.completeWith ["debug", "info", "cmd", "warn", "off"],
+        OA.metavar "(debug | info | cmd | warn | error | off)",
+        OA.completeWith ["debug", "info", "cmd", "warn", "error", "off"],
         mkHelpNoLine "Enables logging."
       ]
   where
@@ -256,6 +267,7 @@ logLevelParser =
         "info" -> pure LogLevelInfo
         "cmd" -> pure LogLevelCommand
         "warn" -> pure LogLevelWarn
+        "error" -> pure LogLevelError
         other -> fail $ "Unrecognized log-level: " ++ show other
 
 repoParser ::
@@ -439,7 +451,8 @@ commandParser :: Parser (Command ConfigPhaseArgs1)
 commandParser =
   OA.hsubparser
     ( mconcat
-        [ mkCommand "search-commit" searchCommitParser searchCommitHelp,
+        [ mkCommand "search-branch" searchBranchParser searchBranchHelp,
+          mkCommand "search-commit" searchCommitParser searchCommitHelp,
           mkCommand "search-pr" searchPullRequestParser searchPullRequestHelp,
           mkCommand "search-defaults" searchDefaultsParser searchDefaultsHelp,
           OA.commandGroup "Search commands:"
@@ -452,6 +465,9 @@ commandParser =
           ]
       )
   where
+    searchBranchParser = SearchBranch <$> branchParser
+    searchBranchHelp = mkCmdDescStr "Searches for a branch's HEAD."
+
     searchCommitParser = SearchCommit <$> commitParser
     searchCommitHelp = mkCmdDescStr "Searches for a commit."
 
@@ -465,6 +481,15 @@ commandParser =
 
     deleteCacheParser = pure (DeleteCache ())
     deleteCacheHelp = mkCmdDescStrNoLine "Deletes the cache."
+
+branchParser :: Parser Branch
+branchParser =
+  OA.argument
+    (MkBranch <$> osString)
+    $ mconcat
+      [ OA.metavar "BRANCH",
+        mkHelp "Branch name for which we want to search."
+      ]
 
 commitParser :: Parser Commit
 commitParser =

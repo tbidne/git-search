@@ -3,6 +3,7 @@ module Git.Search.Logging
     logInfo,
     logCommand,
     logWarn,
+    logError,
     logSuccess,
     logWithLevel,
   )
@@ -10,7 +11,13 @@ where
 
 import Git.Search.Config (Env)
 import Git.Search.Logging.Data
-  ( LogLevel (LogLevelCommand, LogLevelDebug, LogLevelInfo, LogLevelWarn),
+  ( LogLevel
+      ( LogLevelCommand,
+        LogLevelDebug,
+        LogLevelError,
+        LogLevelInfo,
+        LogLevelWarn
+      ),
     mkLevelLog,
     mkSuccessLog,
   )
@@ -55,6 +62,16 @@ logWarn ::
   Text ->
   Eff es ()
 logWarn = logWithLevel LogLevelWarn
+
+logError ::
+  ( HasCallStack,
+    Reader Env :> es,
+    Terminal :> es,
+    Time :> es
+  ) =>
+  Text ->
+  Eff es ()
+logError = logWithLevel LogLevelError
 
 logSuccess ::
   ( HasCallStack,

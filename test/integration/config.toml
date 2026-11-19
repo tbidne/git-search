@@ -8,6 +8,11 @@ name = 'org/repo'
 desc = 'some desc'
 
 [[search-defaults]]
+cmd = 'branch'
+arg = 'master'
+name = 'org/repo2'
+
+[[search-defaults]]
 cmd = 'pr'
 arg = 510883
 name = 'org/repo2'

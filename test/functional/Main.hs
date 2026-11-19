@@ -66,6 +66,7 @@ main = do
     mainTests ref mAuth =
       [ testNixpkgsCommitFetch ref,
         testNixpkgsCommitBranches,
+        testNixpkgsSearchBranch mAuth,
         testNixpkgsDefaults mAuth,
         testNixpkgsPullRequest mAuth
       ]
@@ -122,6 +123,29 @@ testNixpkgsCommitBranches = testCase desc $ do
         "- origin/nixpkgs-unstable"
       ]
 
+testNixpkgsSearchBranch :: Maybe String -> TestTree
+testNixpkgsSearchBranch mAuth = testCase desc $ do
+  results <- Set.fromList <$> runSearch args
+  assertResults expected results
+  where
+    desc = "Searches branch in nixos/nixpkgs"
+
+    args = case mAuth of
+      Nothing -> baseArgs
+      Just auth -> "--auth" : auth : baseArgs
+
+    baseArgs =
+      ["--branches", branches]
+        ++ (argsToStrs $ mempty {cmd = Just ["search-branch", "nixos-unstable"]})
+
+    expected =
+      [ "- origin/master",
+        "- origin/nixos-unstable",
+        "- origin/nixos-unstable-small"
+      ]
+
+    branches = "*master *unstable*"
+
 testNixpkgsDefaults :: Maybe String -> TestTree
 testNixpkgsDefaults mAuth = testCase desc $ do
   results <- mkResultsMap <$> runSearch args
@@ -138,9 +162,10 @@ testNixpkgsDefaults mAuth = testCase desc $ do
         ++ (argsToStrs $ argsCfg {cmd = Just ["search-defaults"]})
 
     expected =
-      [ -- Both results
+      [ -- 2 = search-commit and search-pr
         ("- origin/haskell-updates", 2),
-        ("- origin/master", 2),
+        -- 3 = all
+        ("- origin/master", 3),
         ("- origin/nixos-unstable", 2),
         ("- origin/nixos-unstable-small", 2),
         ("- origin/nixpkgs-unstable", 2),

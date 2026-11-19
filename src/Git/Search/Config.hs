@@ -18,7 +18,7 @@ import Effectful.FileSystem.PathWriter.Dynamic qualified as PW
 import FileSystem.Path qualified as FS.Path
 import Git.Search.Config.Args (Args)
 import Git.Search.Config.Data
-  ( Command (DeleteCache, SearchCommit, SearchPullRequest),
+  ( Command (DeleteCache, SearchBranch, SearchCommit, SearchPullRequest),
     Config (MkConfig, auth, clean, logColor, logLevel, repo),
     DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
     RepoConfig
@@ -36,6 +36,11 @@ import Git.Search.Config.Data
         repoPath,
         repoSrc,
         shouldClone
+      ),
+    SearchBranchParams
+      ( MkSearchBranchParams,
+        baseParams,
+        branch
       ),
     SearchCommitParams
       ( MkSearchCommitParams,
@@ -56,6 +61,7 @@ import Git.Search.Data
   ( Protocol (ProtocolHttps, ProtocolSsh),
     RepoName (MkRepoName),
     RepoPath (MkRepoPath),
+    RepoRemoteName (MkRepoRemoteName),
     RepoRemoteUri (MkRepoRemoteUri),
   )
 import Git.Search.Prelude
@@ -77,8 +83,16 @@ toEnv ::
 toEnv args mToml = do
   let merged = mergeConfig args mToml
 
+      -- remote name defaults to 'origin' per the 'git clone' command.
+      remoteName =
+        fromMaybe
+          (MkRepoRemoteName [osstr|origin|])
+          . view (#coreConfig % #repo % #remoteName)
+          $ merged
+
   command <- case args ^. #command of
     DeleteCache () -> mkDeleteCache merged
+    SearchBranch branch -> mkSearchBranch merged branch
     SearchCommit commit -> mkSearchCommit merged commit
     SearchPullRequest prNum -> mkSearchPullRequest merged prNum
 
@@ -98,7 +112,7 @@ toEnv args mToml = do
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = merged ^. #coreConfig % #repo % #remoteName
+                      remoteName
                     }
               }
         },
@@ -115,8 +129,79 @@ toEnv args mToml = do
           repoPath <- getRepoPath repoName (merged ^. #key) Nothing
           pure $ DeleteCache (DeleteCacheLocal repoPath)
 
+    mkSearchBranch merged branch = do
+      (_, baseParams) <-
+        mkSearchBaseParams
+          "search-branch"
+          doNothing
+          doNothing
+          merged
+
+      pure
+        . SearchBranch
+        $ MkSearchBranchParams
+          { baseParams,
+            branch
+          }
+
     mkSearchCommit merged commit = do
-      repoName@(MkRepoName name) <- getName "search-commit" merged
+      (_, baseParams) <-
+        mkSearchBaseParams
+          "search-commit"
+          doNothing
+          doNothing
+          merged
+
+      pure
+        . SearchCommit
+        $ MkSearchCommitParams
+          { baseParams,
+            commit
+          }
+
+    mkSearchPullRequest merged prNum = do
+      let verifyDomain domain =
+            unless (domain == [osstr|github.com|]) $ do
+              throwString
+                $ "search-pr: --domain must be github.com, not: "
+                ++ decodeLenient domain
+
+          verifyProtocol protocol =
+            unless (protocol == ProtocolHttps) $ do
+              throwString "search-pr: --protocol must be https, not: ssh"
+
+      (repoName, baseParams) <-
+        mkSearchBaseParams
+          "search-pr"
+          verifyDomain
+          verifyProtocol
+          merged
+
+      pure
+        . SearchPullRequest
+        $ MkSearchPullRequestParams
+          { baseParams,
+            prNum,
+            repoName
+          }
+
+    mkSearchBaseParams ::
+      ( HasCallStack,
+        PathReader :> es,
+        PathWriter :> es
+      ) =>
+      -- Command string name.
+      String ->
+      -- On domain
+      (OsString -> Eff es ()) ->
+      -- On protocol
+      (Protocol -> Eff es ()) ->
+      -- Merged config
+      MergedConfig ->
+      -- (Repo name, base params)
+      Eff es (RepoName, SearchBaseParams)
+    mkSearchBaseParams cmdName onDomain onProtocol merged = do
+      repoName@(MkRepoName name) <- getName cmdName merged
 
       let domain = merged ^. #coreConfig % #repo % #domain % #unDomain
           protocol = merged ^. #coreConfig % #repo % #protocol
@@ -129,43 +214,8 @@ toEnv args mToml = do
 
           repoSrc = MkRepoRemoteUri src
 
-      repoPath <-
-        getRepoPath
-          repoName
-          (merged ^. #key)
-          (merged ^. #coreConfig % #repo % #path)
-
-      pure
-        . SearchCommit
-        $ MkSearchCommitParams
-          { baseParams =
-              MkSearchBaseParams
-                { repoPath,
-                  repoSrc,
-                  shouldClone = True
-                },
-            commit
-          }
-
-    mkSearchPullRequest merged prNum = do
-      repoName@(MkRepoName name) <- getName "search-pr" merged
-
-      let domain = merged ^. #coreConfig % #repo % #domain % #unDomain
-          protocol = merged ^. #coreConfig % #repo % #protocol
-
-      unless (domain == [osstr|github.com|]) $ do
-        throwString
-          $ "search-pr: --domain must be github.com, not: "
-          ++ decodeLenient domain
-
-      prefix <- case protocol of
-        ProtocolHttps -> pure $ mkHttps domain
-        ProtocolSsh ->
-          throwString "search-pr: --protocol must be https, not: ssh"
-
-      let src = prefix <> name
-
-          repoSrc = MkRepoRemoteUri src
+      onDomain domain
+      onProtocol protocol
 
       repoPath <-
         getRepoPath
@@ -174,17 +224,15 @@ toEnv args mToml = do
           (merged ^. #coreConfig % #repo % #path)
 
       pure
-        . SearchPullRequest
-        $ MkSearchPullRequestParams
-          { baseParams =
-              MkSearchBaseParams
-                { repoPath,
-                  repoSrc,
-                  shouldClone = True
-                },
-            prNum,
-            repoName
-          }
+        ( repoName,
+          MkSearchBaseParams
+            { repoPath,
+              repoSrc,
+              shouldClone = True
+            }
+        )
+
+    doNothing _ = pure ()
 
 -- NOTE: [Repo Path Duplicates]
 --

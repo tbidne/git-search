@@ -5,7 +5,13 @@ module Unit.Git.Search.Config.Args (tests) where
 import Git.Search.Config.Args (Args (MkArgs))
 import Git.Search.Config.Args qualified as Args
 import Git.Search.Config.Data
-  ( Command (DeleteCache, SearchCommit, SearchDefaults, SearchPullRequest),
+  ( Command
+      ( DeleteCache,
+        SearchBranch,
+        SearchCommit,
+        SearchDefaults,
+        SearchPullRequest
+      ),
     Config (MkConfig, auth, clean, logColor, logLevel, repo),
     RepoConfig
       ( MkRepoConfig,
@@ -23,7 +29,8 @@ import Git.Search.Config.WithDisabled
   ( WithDisabled (Disabled, With),
   )
 import Git.Search.Data
-  ( Domain (MkDomain),
+  ( Branch (MkBranch),
+    Domain (MkDomain),
     Protocol (ProtocolHttps, ProtocolSsh),
   )
 import Git.Search.Logging.Data
@@ -48,6 +55,7 @@ commandTests =
   testGroup
     "Commands"
     [ testDeleteCache,
+      testSearchBranch,
       testSearchCommit,
       testSearchDefaults,
       testSearchPullRequest
@@ -62,6 +70,19 @@ testDeleteCache = testProp1 desc "testDeleteCache" $ do
     args = ["delete-cache"]
 
     e = set' #command (DeleteCache ()) defArgs
+
+testSearchBranch :: TestTree
+testSearchBranch = testProp1 desc "testSearchBranch" $ do
+  testGetArgs e args
+  where
+    desc = "Parses default search-branch"
+
+    args =
+      [ "search-branch",
+        branchStr
+      ]
+
+    e = set' #command (SearchBranch branch) defArgs
 
 testSearchCommit :: TestTree
 testSearchCommit = testProp1 desc "testSearchCommit" $ do
@@ -602,6 +623,12 @@ defArgs =
                 }
           }
     }
+
+branch :: Branch
+branch = MkBranch [osstr|branch_name|]
+
+branchStr :: String
+branchStr = "branch_name"
 
 commit :: Commit
 commit = MkCommit [osstr|1234567|]

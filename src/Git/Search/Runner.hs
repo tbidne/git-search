@@ -30,6 +30,7 @@ import Git.Search.Config.Args qualified
 import Git.Search.Config.Data
   ( Command
       ( DeleteCache,
+        SearchBranch,
         SearchCommit,
         SearchDefaults,
         SearchPullRequest
@@ -86,6 +87,7 @@ runSearch = withHiddenInput $ do
     runCmd :: Bool -> Command ConfigPhaseEnv -> Eff (Reader Env : es) ()
     runCmd finalCmd = \case
       DeleteCache cmdArgs -> Git.Search.deleteCache cmdArgs
+      SearchBranch cmdArgs -> Git.Search.searchBranch cmdArgs >>= printBranches finalCmd
       SearchCommit cmdArgs -> Git.Search.searchCommit cmdArgs >>= printBranches finalCmd
       SearchPullRequest cmdArgs -> Git.Search.searchPullRequest cmdArgs >>= printBranches finalCmd
 
@@ -102,6 +104,9 @@ runSearch = withHiddenInput $ do
     stripCloneDupe :: (Seq EnvCmd, Set RepoProv) -> EnvCmd -> (Seq EnvCmd, Set RepoProv)
     stripCloneDupe (envCmds, foundRepos) envCmd@(env, cmd, mLog) = case cmd of
       DeleteCache {} -> (envCmds :|> envCmd, foundRepos)
+      SearchBranch params ->
+        let (foundRepos', params') = handleCloneDupes foundRepos params
+         in (envCmds :|> (env, SearchBranch params', mLog), foundRepos')
       SearchCommit params ->
         let (foundRepos', params') = handleCloneDupes foundRepos params
          in (envCmds :|> (env, SearchCommit params', mLog), foundRepos')
@@ -210,6 +215,11 @@ getEnv = do
         <$> Config.toEnv
           (set' #command (DeleteCache params) args)
           mToml
+    SearchBranch params ->
+      liftOne
+        <$> Config.toEnv
+          (set' #command (SearchBranch params) args)
+          mToml
     SearchCommit params ->
       liftOne
         <$> Config.toEnv
@@ -220,7 +230,17 @@ getEnv = do
         -- Create the actual command to run.
         let desc = maybe "" (": " <>) mDesc
             (tmpCmd, msg) = case eCmd of
-              Left commit ->
+              E31 branch ->
+                let branchStr = pack $ decodeLenient $ branch ^. #unBranch
+                    logMsg =
+                      mconcat
+                        [ "Running search-branch (",
+                          branchStr,
+                          ")",
+                          desc
+                        ]
+                 in (SearchBranch branch, logMsg)
+              E32 commit ->
                 let commitStr = pack $ decodeLenient $ commit ^. #unCommit
                     logMsg =
                       mconcat
@@ -230,7 +250,7 @@ getEnv = do
                           desc
                         ]
                  in (SearchCommit commit, logMsg)
-              Right pr ->
+              E33 pr ->
                 let logMsg =
                       mconcat
                         [ "Running search-pr (",

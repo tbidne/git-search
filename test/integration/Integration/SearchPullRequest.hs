@@ -71,7 +71,7 @@ testSearchPullRequestDefault = testProp1 desc "testSearchPullRequestDefault" $ d
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = Nothing
+                      remoteName = remoteNameDefault
                     }
               }
         }
@@ -134,7 +134,7 @@ testSearchPullRequestArgs = testProp1 desc "testSearchPullRequestArgs" $ do
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = Just $ unsafeRemoteName "upstream"
+                      remoteName = unsafeRemoteName "upstream"
                     }
               }
         }
@@ -191,7 +191,7 @@ testSearchPullRequestToml = testProp1 desc "testSearchPullRequestToml" $ do
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = Just $ unsafeRemoteName "upstream"
+                      remoteName = unsafeRemoteName "upstream"
                     }
               }
         }
@@ -258,7 +258,7 @@ testSearchPullRequestArgsOverridesToml = testProp1 desc "testSearchPullRequestAr
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = Nothing
+                      remoteName = remoteNameDefault
                     }
               }
         }

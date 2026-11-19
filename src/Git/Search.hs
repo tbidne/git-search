@@ -2,6 +2,7 @@
 
 module Git.Search
   ( -- * Searching
+    searchBranch,
     searchCommit,
     searchPullRequest,
 
@@ -11,7 +12,6 @@ module Git.Search
 where
 
 import Data.Aeson qualified as Asn
-import Data.Functor (($>))
 import Data.Text qualified as T
 import Data.Time.Relative (Format (verbosity))
 import Data.Time.Relative qualified as Time.Rel
@@ -22,6 +22,8 @@ import Effectful.Time.Static qualified as Time
 import Git.Search.Config (Env)
 import Git.Search.Config.Data
   ( DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
+    SearchBaseParams,
+    SearchBranchParams,
     SearchCommitParams
       ( MkSearchCommitParams,
         baseParams,
@@ -30,7 +32,8 @@ import Git.Search.Config.Data
     SearchPullRequestParams,
   )
 import Git.Search.Data
-  ( Commit (MkCommit),
+  ( Branch (MkBranch),
+    Commit (MkCommit),
     RepoName,
     RepoPath,
     RepoRemoteUri,
@@ -39,6 +42,7 @@ import Git.Search.Logging qualified as Logging
 import Git.Search.Prelude
 import Git.Search.Process qualified as Process
 import Network.HTTP.Client qualified as Http
+import System.OsString qualified as OsStr
 
 -- | Deletes the cache.
 deleteCache ::
@@ -68,6 +72,23 @@ deleteCache = \case
       else throwText $ "Cached repository does not exist: " <> repoDirStr
 
 -- | Returns a list of branches matching the search criteria.
+searchBranch ::
+  ( HasCallStack,
+    PathReader :> es,
+    PathWriter :> es,
+    Process :> es,
+    Reader Env :> es,
+    Terminal :> es,
+    Time :> es
+  ) =>
+  SearchBranchParams ->
+  Eff es (List Text)
+searchBranch params =
+  searchCommitHelper
+    (params ^. #baseParams)
+    (Left $ params ^. #branch)
+
+-- | Returns a list of branches matching the search criteria.
 searchCommit ::
   ( HasCallStack,
     PathReader :> es,
@@ -79,24 +100,10 @@ searchCommit ::
   ) =>
   SearchCommitParams ->
   Eff es (List Text)
-searchCommit params = do
-  Logging.logDebug $ "Clone destination: " <> repoPathStr
-
-  if baseParams ^. #shouldClone
-    then cloneRepo repoPath repoSrc
-    else Logging.logInfo $ "Skipping clone/fetch: " <> repoSrcStr
-
-  findBranches (params ^. #commit) repoPath
-  where
-    baseParams = params ^. #baseParams
-
-    repoPath = baseParams ^. #repoPath
-    repoSrc = baseParams ^. #repoSrc
-
-    repoPathOsP = toOsPath $ repoPath ^. #unRepoPath
-    repoPathStr = decodeLenientt repoPathOsP
-
-    repoSrcStr = decodeLenientt $ repoSrc ^. #unRepoRemoteUri
+searchCommit params =
+  searchCommitHelper
+    (params ^. #baseParams)
+    (Right $ params ^. #commit)
 
 searchPullRequest ::
   ( HasCallStack,
@@ -117,6 +124,35 @@ searchPullRequest params = do
       { baseParams = params ^. #baseParams,
         commit
       }
+
+searchCommitHelper ::
+  ( HasCallStack,
+    PathReader :> es,
+    PathWriter :> es,
+    Process :> es,
+    Reader Env :> es,
+    Terminal :> es,
+    Time :> es
+  ) =>
+  SearchBaseParams ->
+  Either Branch Commit ->
+  Eff es (List Text)
+searchCommitHelper baseParams eBranchCommit = do
+  Logging.logDebug $ "Clone destination: " <> repoPathStr
+
+  if baseParams ^. #shouldClone
+    then cloneRepo repoPath repoSrc
+    else Logging.logInfo $ "Skipping clone/fetch: " <> repoSrcStr
+
+  findBranches eBranchCommit repoPath
+  where
+    repoPath = baseParams ^. #repoPath
+    repoSrc = baseParams ^. #repoSrc
+
+    repoPathOsP = toOsPath $ repoPath ^. #unRepoPath
+    repoPathStr = decodeLenientt repoPathOsP
+
+    repoSrcStr = decodeLenientt $ repoSrc ^. #unRepoRemoteUri
 
 prToCommit ::
   ( HasCallStack,
@@ -140,12 +176,26 @@ prToCommit prNum repoName = do
   manager <- Eff.Http.newTlsManager
   baseReq <- updateReq authHeader <$> Http.parseRequest baseUrl
 
-  pr <-
-    Eff.Http.withResponse
-      @GitPullRequest
-      baseReq
-      manager
-      (Eff.Http.readResponseJson baseUrl)
+  ePr <-
+    trySync
+      $ Eff.Http.withResponse
+        @GitPullRequest
+        baseReq
+        manager
+        (Eff.Http.readResponseJson baseUrl)
+
+  pr <- case ePr of
+    Left ex -> do
+      let msg =
+            mconcat
+              [ "Could not find pr ",
+                showt prNum,
+                ": ",
+                displayExceptiont ex
+              ]
+      Logging.logError msg
+      throwText msg
+    Right x -> pure x
 
   case pr ^. #state of
     PullRequestOpen ->
@@ -277,11 +327,7 @@ cloneRepo repoPath repoSrc = do
         repoPathOsP
       ]
 
-    fetchArgs Nothing =
-      [ [osstr|fetch|],
-        [osstr|--prune|]
-      ]
-    fetchArgs (Just remoteName) =
+    fetchArgs remoteName =
       [ [osstr|fetch|],
         remoteName ^. #unRepoRemoteName,
         [osstr|--prune|]
@@ -298,47 +344,106 @@ findBranches ::
     Terminal :> es,
     Time :> es
   ) =>
-  Commit ->
+  Either Branch Commit ->
   RepoPath ->
   Eff es (List Text)
-findBranches commit repoPath = do
+findBranches eBranchCommit repoPath = do
   env <- ask @Env
+
+  commit <- case eBranchCommit of
+    Left b -> branchToCommit b repoPath
+    Right c -> pure c
+
+  let gitDefArgs =
+        [ [osstr|branch|],
+          [osstr|-r|],
+          [osstr|--contains|],
+          commit ^. #unCommit
+        ]
+
+      gitArgs branches = case branches of
+        [] -> gitDefArgs
+        bs@(_ : _) -> gitBranchArgs bs
+
+      gitBranchArgs bs = gitDefArgs ++ ([osstr|--list|] : bs)
+
+      hashStr = decodeLenientt $ commit ^. #unCommit
 
   Logging.logInfo $ "Searching for commit " <> hashStr <> "..."
 
-  commitExists <- doesCommitExist commit repoPath
+  verifyCommitExists commit repoPath
 
-  if not commitExists
-    then Logging.logInfo "Commit does not exist." $> []
-    else do
-      PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
-        (timeStr, out) <-
-          withTiming
-            . Process.runGitOut
-            . gitArgs
-            . view (#coreConfig % #repo % #branches)
-            $ env
-        Logging.logInfo $ "Search finished: " <> timeStr
-        toText <$> decodeThrowM out
+  PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
+    (timeStr, out) <-
+      withTiming
+        . Process.runGitOut
+        . gitArgs
+        . view (#coreConfig % #repo % #branches)
+        $ env
+    Logging.logInfo $ "Search finished: " <> timeStr
+    toText <$> decodeThrowM out
   where
-    gitArgs branches = case branches of
-      [] -> gitDefArgs
-      bs@(_ : _) -> gitBranchArgs bs
-
-    gitDefArgs =
-      [ [osstr|branch|],
-        [osstr|-r|],
-        [osstr|--contains|],
-        commit ^. #unCommit
-      ]
-
-    gitBranchArgs bs = gitDefArgs ++ ([osstr|--list|] : bs)
-
     toText = fmap T.strip . T.lines . pack
 
-    hashStr = decodeLenientt $ commit ^. #unCommit
+branchToCommit ::
+  ( HasCallStack,
+    PathWriter :> es,
+    Process :> es,
+    Reader Env :> es,
+    Terminal :> es,
+    Time :> es
+  ) =>
+  Branch ->
+  RepoPath ->
+  Eff es Commit
+branchToCommit branch repoPath = do
+  remoteName <- asks @Env (view (#coreConfig % #repo % #remoteName))
 
-doesCommitExist ::
+  -- Unless the given branch has a '/' in it, we need to qualify it with
+  -- the remote name (e.g. 'origin').
+  let branchOsStr = branch ^. #unBranch
+
+      qualBranch =
+        if OsStr.elem slashChar branchOsStr
+          then branchOsStr
+          else
+            remoteName
+              ^. #unRepoRemoteName
+              <> OsStr.cons slashChar branchOsStr
+
+      qualBranchTxt = decodeLenientt qualBranch
+
+      gitArgs =
+        [ [osstr|rev-parse|],
+          qualBranch
+        ]
+
+  Logging.logInfo $ "Searching for branch " <> qualBranchTxt <> "..."
+
+  verifyBranchExists (MkBranch qualBranch) repoPath
+
+  PW.withCurrentDirectory (repoPathToOsP repoPath) $ do
+    fmap MkCommit
+      . stripOsStrThrowM
+      <=< Process.runGitOut
+      $ gitArgs
+  where
+    slashChar = OsStr.unsafeFromChar '/'
+
+verifyBranchExists ::
+  ( HasCallStack,
+    PathWriter :> es,
+    Process :> es,
+    Reader Env :> es,
+    Terminal :> es,
+    Time :> es
+  ) =>
+  Branch ->
+  RepoPath ->
+  Eff es ()
+verifyBranchExists branch = verifyGitObjExists "Branch" (branch ^. #unBranch)
+
+verifyCommitExists ::
   ( HasCallStack,
     PathWriter :> es,
     Process :> es,
@@ -348,18 +453,43 @@ doesCommitExist ::
   ) =>
   Commit ->
   RepoPath ->
-  Eff es Bool
-doesCommitExist commit repoPath = do
+  Eff es ()
+verifyCommitExists commit = verifyGitObjExists "Commit" (commit ^. #unCommit)
+
+verifyGitObjExists ::
+  ( HasCallStack,
+    PathWriter :> es,
+    Process :> es,
+    Reader Env :> es,
+    Terminal :> es,
+    Time :> es
+  ) =>
+  Text ->
+  OsString ->
+  RepoPath ->
+  Eff es ()
+verifyGitObjExists tyStr obj repoPath = do
   (ec, _, _) <-
-    PW.withCurrentDirectory (repoPathToOsP repoPath) $ Process.runGit gitArgs
-  pure $ case ec of
-    ExitSuccess -> True
-    ExitFailure _ -> False
+    PW.withCurrentDirectory repoOsP $ Process.runGit gitArgs
+  case ec of
+    ExitSuccess -> pure ()
+    ExitFailure _ -> do
+      let msg =
+            mconcat
+              [ tyStr,
+                " '",
+                decodeLenientt obj,
+                "' does not exist."
+              ]
+      Logging.logError msg
+      throwText msg
   where
+    repoOsP = repoPathToOsP repoPath
+
     gitArgs =
       [ [osstr|cat-file|],
         [osstr|-e|],
-        commit ^. #unCommit
+        obj
       ]
 
 withTiming ::
@@ -390,3 +520,12 @@ withTiming_ = fmap fst . withTiming
 
 repoPathToOsP :: RepoPath -> OsPath
 repoPathToOsP = toOsPath . view #unRepoPath
+
+stripOsStrThrowM ::
+  (HasCallStack) =>
+  OsString ->
+  Eff es OsString
+stripOsStrThrowM str = do
+  txt <- pack <$> decodeThrowM str
+  let stripped = T.strip txt
+  encodeThrowM $ unpack stripped

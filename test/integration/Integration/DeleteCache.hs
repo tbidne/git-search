@@ -52,7 +52,7 @@ testDeleteGlobal = testProp1 desc "testDeleteGlobal" $ do
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = Nothing
+                      remoteName = remoteNameDefault
                     }
               }
         }
@@ -85,7 +85,7 @@ testDeleteLocal = testProp1 desc "testDeleteLocal" $ do
                       name = (),
                       path = (),
                       protocol = (),
-                      remoteName = Nothing
+                      remoteName = remoteNameDefault
                     }
               }
         }

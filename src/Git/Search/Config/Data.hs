@@ -12,6 +12,7 @@ module Git.Search.Config.Data
     -- * Command
     Command (..),
     SearchBaseParams (..),
+    SearchBranchParams (..),
     SearchCommitParams (..),
     SearchPullRequestParams (..),
     _DeleteCache,
@@ -27,6 +28,7 @@ module Git.Search.Config.Data
     AuthF,
     DeleteCacheF,
     RepoF,
+    SearchBranchF,
     SearchCommitF,
     SearchDefaultsF,
     SearchPullRequestF,
@@ -48,7 +50,8 @@ import Git.Search.Config.Phase
 import Git.Search.Config.Toml.Utils qualified as Toml.Utils
 import Git.Search.Config.WithDisabled (WithDisabled)
 import Git.Search.Data
-  ( Commit,
+  ( Branch,
+    Commit,
     Domain,
     Protocol,
     RepoName,
@@ -107,6 +110,14 @@ type family PathF p where
   PathF ConfigPhaseMerged = Maybe OsPath
   PathF ConfigPhaseEnv = ()
 
+type RepoRemoteNameF :: ConfigPhase -> Type
+type family RepoRemoteNameF p where
+  RepoRemoteNameF ConfigPhaseArgs1 = Maybe (WithDisabled RepoRemoteName)
+  RepoRemoteNameF ConfigPhaseToml = Maybe RepoRemoteName
+  RepoRemoteNameF ConfigPhaseTomlRepoDefaults = ()
+  RepoRemoteNameF ConfigPhaseMerged = Maybe RepoRemoteName
+  RepoRemoteNameF ConfigPhaseEnv = RepoRemoteName
+
 -- | Config related to a single repository.
 type RepoConfig :: ConfigPhase -> Type
 data RepoConfig p = MkRepoConfig
@@ -125,7 +136,7 @@ data RepoConfig p = MkRepoConfig
     -- | Protocol e.g. https
     protocol :: ProtocolF p,
     -- | Remote name e.g. 'origin'.
-    remoteName :: ConfigWdMaybeF p RepoRemoteName
+    remoteName :: RepoRemoteNameF p
   }
 
 deriving stock instance
@@ -135,7 +146,7 @@ deriving stock instance
     Eq (NameF p RepoName),
     Eq (PathF p),
     Eq (ProtocolF p),
-    Eq (ConfigWdMaybeF p RepoRemoteName)
+    Eq (RepoRemoteNameF p)
   ) =>
   Eq (RepoConfig p)
 
@@ -146,7 +157,7 @@ deriving stock instance
     Show (NameF p RepoName),
     Show (PathF p),
     Show (ProtocolF p),
-    Show (ConfigWdMaybeF p RepoRemoteName)
+    Show (RepoRemoteNameF p)
   ) =>
   Show (RepoConfig p)
 
@@ -227,6 +238,18 @@ data SearchBaseParams = MkSearchBaseParams
   }
   deriving stock (Eq, Show)
 
+type SearchBranchF :: ConfigPhase -> Type
+type family SearchBranchF p where
+  SearchBranchF ConfigPhaseArgs1 = Branch
+  SearchBranchF ConfigPhaseArgs2 = Branch
+  SearchBranchF ConfigPhaseEnv = SearchBranchParams
+
+data SearchBranchParams = MkSearchBranchParams
+  { baseParams :: SearchBaseParams,
+    branch :: Branch
+  }
+  deriving stock (Eq, Show)
+
 type SearchCommitF :: ConfigPhase -> Type
 type family SearchCommitF p where
   SearchCommitF ConfigPhaseArgs1 = Commit
@@ -263,6 +286,8 @@ type Command :: ConfigPhase -> Type
 data Command p
   = -- | Deletes the cache.
     DeleteCache (DeleteCacheF p)
+  | -- | Searches for the branch.
+    SearchBranch (SearchBranchF p)
   | -- | Searches for the commit.
     SearchCommit (SearchCommitF p)
   | -- | Runs default searches.
@@ -272,6 +297,7 @@ data Command p
 
 deriving stock instance
   ( Eq (DeleteCacheF p),
+    Eq (SearchBranchF p),
     Eq (SearchCommitF p),
     Eq (SearchDefaultsF p),
     Eq (SearchPullRequestF p)
@@ -280,6 +306,7 @@ deriving stock instance
 
 deriving stock instance
   ( Show (DeleteCacheF p),
+    Show (SearchBranchF p),
     Show (SearchCommitF p),
     Show (SearchDefaultsF p),
     Show (SearchPullRequestF p)
@@ -345,8 +372,9 @@ deriving stock instance
 
 makeFieldLabelsNoPrefix ''RepoConfig
 makeFieldLabelsNoPrefix ''Config
-makeFieldLabelsNoPrefix ''SearchCommitParams
 makeFieldLabelsNoPrefix ''SearchBaseParams
+makeFieldLabelsNoPrefix ''SearchBranchParams
+makeFieldLabelsNoPrefix ''SearchCommitParams
 makeFieldLabelsNoPrefix ''SearchPullRequestParams
 makePrisms ''DeleteCacheType
 makePrisms ''Command

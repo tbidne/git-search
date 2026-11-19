@@ -29,14 +29,14 @@ import Git.Search.Config.Phase
         ConfigPhaseTomlRepoDefaults
       ),
   )
-import Git.Search.Data (Commit, RepoName)
+import Git.Search.Data (Branch, Commit, RepoName)
 import Git.Search.Prelude
 import TOML (Decoder, getArrayOf)
 
 data Toml = MkToml
   { coreConfig :: Config ConfigPhaseToml,
     repoDefaults :: RepoConfig ConfigPhaseTomlRepoDefaults,
-    searchDefaults :: Seq (Either Commit Word32, RepoName, Maybe Text)
+    searchDefaults :: Seq (Either3 Branch Commit Word32, RepoName, Maybe Text)
   }
 
 makeFieldLabelsNoPrefix ''Toml
@@ -103,18 +103,19 @@ instance DecodeTOML Toml where
                 remoteName = ()
               }
 
-      decodeSearchDefaults :: Decoder (Seq (Either Commit Word32, RepoName, Maybe Text))
+      decodeSearchDefaults :: Decoder (Seq (Either3 Branch Commit Word32, RepoName, Maybe Text))
       decodeSearchDefaults =
         fmap (maybe Seq.empty Seq.fromList)
           . flip getFieldOptWith "search-defaults"
           $ getArrayOf decodeSearchDefault
 
-      decodeSearchDefault :: Decoder (Either Commit Word32, RepoName, Maybe Text)
+      decodeSearchDefault :: Decoder (Either3 Branch Commit Word32, RepoName, Maybe Text)
       decodeSearchDefault = do
         cmdArg <-
           getFieldWith @Text tomlDecoder "cmd" >>= \case
-            "commit" -> Left <$> decodeSearchDefaultArg
-            "pr" -> Right <$> decodeSearchDefaultArg
+            "branch" -> E31 <$> decodeSearchDefaultArg
+            "commit" -> E32 <$> decodeSearchDefaultArg
+            "pr" -> E33 <$> decodeSearchDefaultArg
             other -> fail $ "Unrecognized command: " ++ unpack other
 
         -- NOTE: [SearchDefaults name]

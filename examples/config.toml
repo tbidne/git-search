@@ -11,16 +11,22 @@ name = 'my/repo'
 # e.g.
 #
 #   git-search --name nixos/nixpkgs search-commit c190319
+#   git-search --name nixos/nixpkgs search-branch master
 #   git-search --name nixos/nixpkgs search-pr 510883
 [[search-defaults]]
-# Mandatory 'commit' or 'pr'.
+# Mandatory 'branch', 'commit', or 'pr'.
 cmd = 'commit'
-# Mandatory String commit or int pr.
+# Mandatory String branch, String commit, or int pr.
 arg = 'c190319'
 # Mandatory repo name
 name = 'nixos/nixpkgs'
 # Optional description, used in logs.
 desc = 'some commit'
+
+[[search-defaults]]
+cmd = 'branch'
+arg = 'master'
+name = 'nixos/nixpkgs'
 
 [[search-defaults]]
 cmd = 'pr'
