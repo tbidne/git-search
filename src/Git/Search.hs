@@ -72,7 +72,7 @@ deleteCache = \case
       then PW.removePathForcibly repoDir
       else throwText $ "Cached repository does not exist: " <> repoDirStr
 
--- | Returns a list of branches matching the search criteria.
+-- | Finds the HEAD commit associated to the branch. Then runs searchCommit.
 searchBranch ::
   ( HasCallStack,
     PathReader :> es,
@@ -106,6 +106,7 @@ searchCommit params =
     (params ^. #baseParams)
     (Right $ params ^. #commit)
 
+-- | Finds the HEAD commit associated to the PR. Then runs searchCommit.
 searchPullRequest ::
   ( HasCallStack,
     PathReader :> es,
@@ -119,12 +120,14 @@ searchPullRequest ::
   SearchPullRequestParams ->
   Eff es (List Text)
 searchPullRequest params = do
-  commit <- prToCommit (params ^. #prNum) (params ^. #repoName)
-  searchCommit
-    $ MkSearchCommitParams
-      { baseParams = params ^. #baseParams,
-        commit
-      }
+  prToCommit (params ^. #prNum) (params ^. #repoName) >>= \case
+    Nothing -> pure []
+    Just commit ->
+      searchCommit
+        $ MkSearchCommitParams
+          { baseParams = params ^. #baseParams,
+            commit
+          }
 
 searchCommitHelper ::
   ( HasCallStack,
@@ -155,6 +158,7 @@ searchCommitHelper baseParams eBranchCommit = do
 
     repoSrcStr = decodeLenientt $ repoSrc ^. #unRepoRemoteUri
 
+-- | Finds the commit associated to the PR, if it exists.
 prToCommit ::
   ( HasCallStack,
     Network :> es,
@@ -162,12 +166,15 @@ prToCommit ::
     Terminal :> es,
     Time :> es
   ) =>
+  -- | PR number.
   Word32 ->
+  -- | Repository name.
   RepoName ->
-  Eff es Commit
+  Eff es (Maybe Commit)
 prToCommit prNum repoName = do
   env <- ask @Env
 
+  -- Add auth if given. Primarily used for github CI.
   authHeader <- case env ^. #coreConfig % #auth of
     Nothing -> pure []
     Just auth -> do
@@ -185,34 +192,36 @@ prToCommit prNum repoName = do
         manager
         (Eff.Http.readResponseJson baseUrl)
 
-  pr <- case ePr of
+  case ePr of
+    -- Warn if something went wrong (e.g. PR does not exist).
+    --
+    -- See NOTE: [Warning on non-existence]
     Left ex -> do
       let msg =
             mconcat
-              [ "Could not find pr ",
+              [ "PR '",
                 showt prNum,
-                ": ",
+                "' not found: ",
                 displayExceptiont ex
               ]
-      Logging.logError msg
-      throwText msg
-    Right x -> pure x
+      Logging.logWarn msg
+      pure Nothing
+    Right pr -> do
+      case pr ^. #state of
+        PullRequestOpen ->
+          Logging.logInfo $ "Pull request " <> prStr <> " is currently open."
+        PullRequestClosed ->
+          if pr ^. #merged
+            then
+              Logging.logDebug $ "Pull request " <> prStr <> " is merged."
+            else
+              Logging.logWarn $ "Pull request " <> prStr <> " is closed but unmerged."
 
-  case pr ^. #state of
-    PullRequestOpen ->
-      Logging.logInfo $ "Pull request " <> prStr <> " is currently open."
-    PullRequestClosed ->
-      if pr ^. #merged
-        then
-          Logging.logDebug $ "Pull request " <> prStr <> " is merged."
-        else
-          Logging.logWarn $ "Pull request " <> prStr <> " is closed but unmerged."
+      let commitStr = T.strip $ pr ^. #head % #sha
 
-  let commitStr = T.strip $ pr ^. #head % #sha
+      Logging.logDebug $ "Found commit (" <> showt (pr ^. #commits) <> "): " <> commitStr
 
-  Logging.logDebug $ "Found commit (" <> showt (pr ^. #commits) <> "): " <> commitStr
-
-  MkCommit <$> encodeThrowM (unpack commitStr)
+      Just . MkCommit <$> encodeThrowM (unpack commitStr)
   where
     prStr = showt prNum
 
@@ -264,6 +273,7 @@ newtype GitCommit = MkGitCommit
   deriving stock (Generic)
   deriving anyclass (FromJSON)
 
+-- | Clones the repo or runs fetch.
 cloneRepo ::
   ( HasCallStack,
     PathReader :> es,
@@ -273,7 +283,9 @@ cloneRepo ::
     Terminal :> es,
     Time :> es
   ) =>
+  -- | Repo file-system path.
   RepoPath ->
+  -- | Full repo remote uri.
   RepoRemoteUri ->
   Eff es ()
 cloneRepo repoPath repoSrc = do
@@ -337,6 +349,7 @@ cloneRepo repoPath repoSrc = do
     repoPathOsP = toOsPath $ repoPath ^. #unRepoPath
     repoSrcStr = decodeLenientt $ repoSrc ^. #unRepoRemoteUri
 
+-- | Finds all branches containing the given branch HEAD or commit.
 findBranches ::
   ( HasCallStack,
     PathWriter :> es,
@@ -454,17 +467,41 @@ commitExists ::
   Eff es Bool
 commitExists commit = gitObjExists "Commit" (commit ^. #unCommit)
 
+-- NOTE: [Warning on non-existence]
+--
+-- We choose to issue warnings and return an empty list, rather than erroring,
+-- when certain objects are not found. For instance:
+--
+-- - Branch not found
+-- - Commit
+-- - PR not found
+--
+-- While it is plausible that a user typing in a bad branch or commit might
+-- deserve an error, there are at least two situations where this could be
+-- undesirable.
+--
+-- 1. Some non-existence can reasonably be expected.
+--
+--    For example, suppose we are searching for an PR from a fork that happens
+--    to be unmerged. It is likely that its HEAD commit will not exist in our
+--    repo at all (since it is on a fork), which will mean our existence check
+--    'git cat-file' will fail.
+--
+--    But this really isn't any different from checking an unmerged PR that
+--    is /not/ on a fork, where the commit will in fact exist in our repo.
+--
+--    Both cases are really the same i.e. should report no branches found.
+--
+-- 2. These errors are especially awkward with the search-defaults command.
+--    That is, a single error will take down the entire sequence, which is
+--    okay for something pathological, but shouldn't happen for something
+--    relatively normal.
+--
+-- For these reasons, we should not error for 'not found' situations, and
+-- instead log it and return no matches.
+
 -- | Returns true iff the git object exists. Logs a warning if not.
--- We choose to warn rather than fail because there are some situations where
--- non-existence is expected e.g. if we are searching an unmerged PR from a
--- fork.
---
--- The commit will exist on the fork but likely will not exist in our repo,
--- hence 'git cat-file' will fail. It is better to simply log this then
--- throw an exception, as the latter is misleading.
---
--- This does mean that actual user errors will also be warnings
--- (e.g. direct searching for wrong branch/commit), but that's okay.
+-- See NOTE: [Warning on non-existence].
 gitObjExists ::
   ( HasCallStack,
     PathWriter :> es,
@@ -538,9 +575,9 @@ prependRemoteName osStr = do
   remoteName <- asks @Env (view (#coreConfig % #repo % #remoteName))
 
   pure
+    . (<> OsStr.cons slashChar osStr)
+    . view #unRepoRemoteName
     $ remoteName
-    ^. #unRepoRemoteName
-    <> OsStr.cons slashChar osStr
 
 slashChar :: OsChar
 slashChar = OsStr.unsafeFromChar '/'
