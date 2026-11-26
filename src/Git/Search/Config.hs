@@ -10,6 +10,8 @@ module Git.Search.Config
 
     -- * Misc
     getRepoPath,
+    prependRemoteName,
+    slashChar,
   )
 where
 
@@ -24,6 +26,7 @@ import Git.Search.Config.Data
     RepoConfig
       ( MkRepoConfig,
         branches,
+        branchesPrefix,
         domain,
         key,
         name,
@@ -65,6 +68,8 @@ import Git.Search.Data
     RepoRemoteUri (MkRepoRemoteUri),
   )
 import Git.Search.Prelude
+import System.OsString (OsChar)
+import System.OsString qualified as OsStr
 
 newtype Env = MkEnv {coreConfig :: Config ConfigPhaseEnv}
   deriving stock (Eq, Show)
@@ -82,6 +87,12 @@ toEnv ::
   Eff es (Env, Command ConfigPhaseEnv)
 toEnv args mToml = do
   let merged = mergeConfig args mToml
+
+      branches =
+        mPrefixBranches
+          (merged ^. #coreConfig % #repo % #branchesPrefix)
+          remoteName
+          (merged ^. #coreConfig % #repo % #branches)
 
       -- remote name defaults to 'origin' per the 'git clone' command.
       remoteName =
@@ -105,7 +116,8 @@ toEnv args mToml = do
                 logLevel = merged ^. #coreConfig % #logLevel,
                 repo =
                   MkRepoConfig
-                    { branches = merged ^. #coreConfig % #repo % #branches,
+                    { branches,
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),
@@ -338,3 +350,20 @@ mkHttps domain = [osstr|https://|] <> domain <> [osstr|/|]
 
 mkSsh :: OsString -> OsString
 mkSsh domain = [osstr|git@|] <> domain <> [osstr|:|]
+
+mPrefixBranches ::
+  Bool ->
+  RepoRemoteName ->
+  List OsString ->
+  List OsString
+mPrefixBranches False _ = id
+mPrefixBranches True remoteName = fmap (prependRemoteName remoteName)
+
+prependRemoteName :: RepoRemoteName -> OsString -> OsString
+prependRemoteName remoteName osStr =
+  (<> OsStr.cons slashChar osStr)
+    . view #unRepoRemoteName
+    $ remoteName
+
+slashChar :: OsChar
+slashChar = OsStr.unsafeFromChar '/'

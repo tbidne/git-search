@@ -27,6 +27,7 @@ import Git.Search.Config.Data
     RepoConfig
       ( MkRepoConfig,
         branches,
+        branchesPrefix,
         domain,
         key,
         name,
@@ -197,7 +198,7 @@ argsParser = do
     p = do
       auth <- authParser
       ~(logColor, logLevel) <- loggingParser
-      ~(branches, domain, name, path, protocol, remoteName) <- repoParser
+      ~(branches, branchesPrefix, domain, name, path, protocol, remoteName) <- repoParser
       ~(config, update) <- miscParser
 
       command <- commandParser
@@ -214,6 +215,7 @@ argsParser = do
                   repo =
                     MkRepoConfig
                       { branches,
+                        branchesPrefix,
                         domain,
                         key = (),
                         name,
@@ -274,6 +276,7 @@ logLevelParser =
 repoParser ::
   Parser
     ( Maybe (WithDisabled (List OsString)),
+      Maybe Bool,
       Maybe (WithDisabled Domain),
       Maybe (WithDisabled RepoName),
       Maybe (WithDisabled OsString),
@@ -282,8 +285,9 @@ repoParser ::
     )
 repoParser =
   OA.parserOptionGroup "Repository options:"
-    $ (,,,,,)
+    $ (,,,,,,)
     <$> branchesParser
+    <*> branchesPrefixParser
     <*> domainParser
     <*> nameParser
     <*> pathParser
@@ -302,8 +306,9 @@ branchesParser =
         mkHelp
           $ mconcat
             [ "Filters the search via space-separated branches e.g. ",
-              "'*master *some-branch'. Note that the searched branches includes ",
-              "the remote (origin), so a prefix '*' may be desired."
+              "'master some-branch*'. Note that the searched branches includes ",
+              "the remote (origin), so either '--branches-prefix on' or a ",
+              "prefix '*' may be desired."
             ]
       ]
   where
@@ -312,6 +317,19 @@ branchesParser =
       WD.disabledParser s $ do
         let strs = fmap T.strip . T.words $ s
         traverse (encodeFail . unpack) strs
+
+branchesPrefixParser :: Parser (Maybe Bool)
+branchesPrefixParser =
+  switchParser
+    $ mconcat
+      [ OA.long "branches-prefix",
+        mkHelp
+          $ mconcat
+            [ "If on, automatically adds --remote-name to each branch in ",
+              "--branches e.g. --branches 'master staging*' becomes ",
+              "'origin/master origin/staging*'. Defaults to 'on'."
+            ]
+      ]
 
 domainParser :: Parser (Maybe (WithDisabled Domain))
 domainParser =

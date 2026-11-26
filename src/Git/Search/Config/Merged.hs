@@ -15,6 +15,7 @@ import Git.Search.Config.Data
     RepoConfig
       ( MkRepoConfig,
         branches,
+        branchesPrefix,
         domain,
         key,
         name,
@@ -89,6 +90,10 @@ mergeConfig args mToml =
                     mergeBranches
                       (args ^. #coreConfig % #repo % #branches)
                       Nothing,
+                  branchesPrefix =
+                    mergeBoolTrue
+                      (args ^. #coreConfig % #repo % #branchesPrefix)
+                      Nothing,
                   domain =
                     mergeWD
                       defDomain
@@ -133,6 +138,10 @@ mergeConfig args mToml =
                     mergeBranches
                       (args ^. #coreConfig % #repo % #branches)
                       mRepo,
+                  branchesPrefix =
+                    mergeBoolTrue
+                      (args ^. #coreConfig % #repo % #branchesPrefix)
+                      (mRepo ^? _Just % #branchesPrefix % _Just),
                   domain =
                     mergeWD
                       defDomain

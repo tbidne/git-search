@@ -8,6 +8,7 @@ import Git.Search.Config.Data
     RepoConfig
       ( MkRepoConfig,
         branches,
+        branchesPrefix,
         domain,
         key,
         name,
@@ -73,6 +74,7 @@ testSearchBranchDefault = testProp1 desc "testSearchBranchDefault" $ do
                 repo =
                   MkRepoConfig
                     { branches = [],
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),
@@ -115,6 +117,8 @@ testSearchBranchArgs = testProp1 desc "testSearchBranchArgs" $ do
         "debug",
         "--branches",
         "*master *unstable*",
+        "--branches-prefix",
+        "off",
         "--domain",
         "server.com",
         "--name",
@@ -139,6 +143,7 @@ testSearchBranchArgs = testProp1 desc "testSearchBranchArgs" $ do
                 repo =
                   MkRepoConfig
                     { branches = unsafeOsStrs ["*master", "*unstable*"],
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),
@@ -189,6 +194,7 @@ testSearchBranchToml = testProp1 desc "testSearchBranchToml" $ do
                 repo =
                   MkRepoConfig
                     { branches = unsafeOsStrs ["*master", "*unstable*"],
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),
@@ -255,6 +261,7 @@ testSearchBranchArgsOverridesToml = testProp1 desc "testSearchBranchArgsOverride
                 repo =
                   MkRepoConfig
                     { branches = [],
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),

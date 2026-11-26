@@ -9,6 +9,7 @@ import Git.Search.Config.Data
     RepoConfig
       ( MkRepoConfig,
         branches,
+        branchesPrefix,
         domain,
         key,
         name,
@@ -47,6 +48,7 @@ testDeleteGlobal = testProp1 desc "testDeleteGlobal" $ do
                 repo =
                   MkRepoConfig
                     { branches = [],
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),
@@ -80,6 +82,7 @@ testDeleteLocal = testProp1 desc "testDeleteLocal" $ do
                 repo =
                   MkRepoConfig
                     { branches = [],
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),

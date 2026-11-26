@@ -14,6 +14,7 @@ import Git.Search.Config.Data
     RepoConfig
       ( MkRepoConfig,
         branches,
+        branchesPrefix,
         domain,
         key,
         name,
@@ -29,6 +30,7 @@ import Git.Search.Config.Phase
         ConfigPhaseTomlRepoDefaults
       ),
   )
+import Git.Search.Config.Toml.Utils qualified as Toml.Utils
 import Git.Search.Data (Branch, Commit, RepoName)
 import Git.Search.Prelude
 import TOML (Decoder, getArrayOf)
@@ -68,7 +70,7 @@ instance DecodeTOML Toml where
           $ flip getFieldOptWith "logging"
           $ do
             (,)
-              <$> getFieldOptWith decodeSwitch "log-color"
+              <$> getFieldOptWith Toml.Utils.switchDecoder "log-color"
               <*> getFieldOptWith tomlDecoder "log-level"
 
       decodeRepoMap = do
@@ -95,6 +97,7 @@ instance DecodeTOML Toml where
           defRepo =
             MkRepoConfig
               { branches = (),
+                branchesPrefix = (),
                 domain = (),
                 key = (),
                 name = Nothing,
@@ -141,10 +144,3 @@ instance DecodeTOML Toml where
         fmap (fromMaybe Nothing)
           $ flip getFieldOptWith "miscellaneous"
           $ getFieldOptWith tomlDecoder "update"
-
-decodeSwitch :: Decoder Bool
-decodeSwitch =
-  tomlDecoder >>= \case
-    "off" -> pure False
-    "on" -> pure True
-    other -> fail $ "Unrecognized: " ++ other

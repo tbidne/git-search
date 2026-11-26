@@ -30,6 +30,7 @@ type ConfigF :: ConfigPhase -> Type -> Type
 type family ConfigF p a where
   ConfigF ConfigPhaseArgs1 a = Maybe a
   ConfigF ConfigPhaseToml a = Maybe a
+  ConfigF ConfigPhaseTomlRepoDefaults _ = ()
   ConfigF ConfigPhaseMerged a = a
   ConfigF ConfigPhaseEnv a = a
 

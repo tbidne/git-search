@@ -20,6 +20,7 @@ name = 'org/repo2'
 [[repo-map]]
 name = 'org/repo'
 branches = [ '*master', '*unstable*' ]
+branches-prefix = 'off'
 domain = 'server.com'
 path = '~/local/path'
 protocol = 'ssh'
@@ -29,6 +30,7 @@ remote = 'upstream'
 key = 'repo1'
 name = 'org/repo_dupe'
 branches = [ '*master1' ]
+branches-prefix = 'off'
 domain = 'server1.com'
 path = '~/local/path1'
 protocol = 'ssh'
@@ -37,7 +39,8 @@ remote = 'upstream1'
 [[repo-map]]
 key = 'repo2'
 name = 'org/repo_dupe'
-branches = [ '*master2' ]
+branches = [ 'master2', 'staging2*' ]
+branches-prefix = 'on'
 domain = 'server2.com'
 path = '~/local/path2'
 protocol = 'ssh'
@@ -46,7 +49,7 @@ remote = 'upstream2'
 [[repo-map]]
 key = 'repo3'
 name = 'org/repo_dupe'
-branches = [ '*master3' ]
+branches = [ 'master3' ]
 domain = 'server3.com'
 protocol = 'ssh'
 remote = 'upstream3'

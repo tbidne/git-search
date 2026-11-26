@@ -62,6 +62,10 @@ name = 'nixos/nixpkgs'
 # Optional map of names to branch filters.
 branches = [ '*master', '*unstable*' ]
 
+# If enabled, all branches will be prefixed with 'remote' e.g.
+# 'origin/master'. Defaults to 'on'.
+branches-prefix = 'off'
+
 # Optional domain to use.
 domain = 'github.com'
 
@@ -79,6 +83,9 @@ domain = 'github.com'
 #
 # depending on if 'key' exists.
 #path = '/home/dev/nix'
+
+# Optional remote name. Defaults to 'origin'.
+#remote = 'origin'
 
 # Optional https or ssh.
 protocol = 'https'
