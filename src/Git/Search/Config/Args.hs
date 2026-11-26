@@ -154,12 +154,6 @@ getArgs = EOA.execParser parserInfoArgs
                 "In general, the repository is cloned to a cache the first ",
                 "time, so that subsequent runs are faster."
               ],
-          Chunk.paragraph
-            $ mconcat
-              [ "In the option descriptions, note that 'off' disables ",
-                "CLI and TOML configuration for that option i.e. the ",
-                "default behavior is used."
-              ],
           Chunk.paragraph "Examples:",
           mkExample
             [ "1. Search a git repository for branches with a commit hash:",
@@ -174,7 +168,7 @@ getArgs = EOA.execParser parserInfoArgs
           mkExample
             [ "2. Filtering via --branches:",
               "",
-              "$ git-search --name nixos/nixpkgs --branches '*master *unstable' search-commit c190319",
+              "$ git-search --name nixos/nixpkgs --branches 'master *unstable' search-commit c190319",
               "Found 3 branches:",
               " - origin/master",
               " - origin/nixos-unstable",
@@ -233,7 +227,8 @@ authParser =
     $ OA.option
       osString
     $ mconcat
-      [ OA.long "auth"
+      [ OA.long "auth",
+        OA.hidden
       ]
 
 loggingParser :: Parser (Maybe Bool, Maybe (WithDisabled LogLevel))
@@ -248,6 +243,7 @@ logColorParser =
   switchParser
     $ mconcat
       [ OA.long "log-color",
+        OA.hidden,
         mkHelp "Enables log colors. Defaults to 'on'."
       ]
 
@@ -258,6 +254,7 @@ logLevelParser =
       r
     $ mconcat
       [ OA.long "log-level",
+        OA.hidden,
         OA.metavar "(debug | info | cmd | warn | error | off)",
         OA.completeWith ["debug", "info", "cmd", "warn", "error", "off"],
         mkHelpNoLine "Enables logging."
@@ -301,6 +298,7 @@ branchesParser =
       r
     $ mconcat
       [ OA.long "branches",
+        OA.hidden,
         OA.metavar "(STR | off)",
         OA.completeWith ["off"],
         mkHelp
@@ -323,6 +321,7 @@ branchesPrefixParser =
   switchParser
     $ mconcat
       [ OA.long "branches-prefix",
+        OA.hidden,
         mkHelp
           $ mconcat
             [ "If on, automatically adds --remote-name to each branch in ",
@@ -338,6 +337,7 @@ domainParser =
       r
     $ mconcat
       [ OA.long "domain",
+        OA.hidden,
         OA.metavar "(STR | off)",
         OA.completeWith ["off"],
         mkHelp "Repository domain. Defaults to github.com."
@@ -354,6 +354,7 @@ nameParser =
       r
     $ mconcat
       [ OA.long "name",
+        OA.hidden,
         OA.metavar "(STR | off)",
         OA.completeWith ["off"],
         mkHelp
@@ -375,6 +376,7 @@ pathParser =
       r
     $ mconcat
       [ OA.long "path",
+        OA.hidden,
         OA.metavar "(PATH | off)",
         OA.completer EOC.compgenCwdDirsCompleter,
         OA.completeWith ["off"],
@@ -397,6 +399,7 @@ protocolParser =
       r
     $ mconcat
       [ OA.long "protocol",
+        OA.hidden,
         OA.metavar "(https | ssh | off)",
         OA.completeWith ["https", "ssh", "off"],
         mkHelpNoLine "Protocol to use. Defaults to https."
@@ -416,6 +419,7 @@ remoteNameParser =
       r
     $ mconcat
       [ OA.long "remote-name",
+        OA.hidden,
         OA.metavar "(STR | off)",
         OA.completeWith ["off"],
         mkHelpNoLine "Remote name for fetching. Defaults to 'origin'."
@@ -439,6 +443,7 @@ updateParser =
       r
     $ mconcat
       [ OA.long "update",
+        OA.hidden,
         OA.metavar "(auto | clean | off)",
         OA.completeWith ["auto", "clean", "off"],
         itemizeNoLine
@@ -470,6 +475,7 @@ configParser =
       r
     $ mconcat
       [ OA.long "config",
+        OA.hidden,
         OA.metavar "(PATH | off)",
         OA.completer EOC.compgenCwdPathsCompleter,
         OA.completeWith ["off"],
@@ -498,7 +504,10 @@ commandParser =
     <|> OA.hsubparser
       ( mconcat
           [ mkCommand "delete-cache" deleteCacheParser deleteCacheHelp,
-            OA.commandGroup "Miscellaneous commands:"
+            OA.commandGroup "Miscellaneous commands:",
+            -- NOTE: Mark all command groups but the first as 'hidden', so
+            -- we only get one in the --help short desc.
+            OA.hidden
           ]
       )
   where
