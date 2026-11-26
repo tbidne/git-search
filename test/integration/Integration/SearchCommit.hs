@@ -8,6 +8,7 @@ import Git.Search.Config.Data
     RepoConfig
       ( MkRepoConfig,
         branches,
+        branchesPrefix,
         domain,
         key,
         name,
@@ -74,6 +75,7 @@ testSearchCommitDefault = testProp1 desc "testSearchCommitDefault" $ do
                 repo =
                   MkRepoConfig
                     { branches = [],
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),
@@ -116,6 +118,8 @@ testSearchCommitArgs = testProp1 desc "testSearchCommitArgs" $ do
         "debug",
         "--branches",
         "*master *unstable*",
+        "--branches-prefix",
+        "off",
         "--domain",
         "server.com",
         "--name",
@@ -140,6 +144,7 @@ testSearchCommitArgs = testProp1 desc "testSearchCommitArgs" $ do
                 repo =
                   MkRepoConfig
                     { branches = unsafeOsStrs ["*master", "*unstable*"],
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),
@@ -190,6 +195,7 @@ testSearchCommitToml = testProp1 desc "testSearchCommitToml" $ do
                 repo =
                   MkRepoConfig
                     { branches = unsafeOsStrs ["*master", "*unstable*"],
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),
@@ -238,6 +244,7 @@ testSearchCommitTomlRepoDefaults = testProp1 desc "testSearchCommitTomlRepoDefau
                 repo =
                   MkRepoConfig
                     { branches = [],
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),
@@ -288,6 +295,7 @@ testSearchCommitTomlKey1 = testProp1 desc "testSearchCommitTomlKey1" $ do
                 repo =
                   MkRepoConfig
                     { branches = unsafeOsStrs ["*master1"],
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),
@@ -337,7 +345,8 @@ testSearchCommitTomlKey2 = testProp1 desc "testSearchCommitTomlKey2" $ do
                 logLevel = Just LogLevelDebug,
                 repo =
                   MkRepoConfig
-                    { branches = unsafeOsStrs ["*master2"],
+                    { branches = unsafeOsStrs ["upstream2/master2", "upstream2/staging2*"],
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),
@@ -387,7 +396,8 @@ testSearchCommitTomlKey3 = testProp1 desc "testSearchCommitTomlKey3" $ do
                 logLevel = Just LogLevelDebug,
                 repo =
                   MkRepoConfig
-                    { branches = unsafeOsStrs ["*master3"],
+                    { branches = unsafeOsStrs ["upstream3/master3"],
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),
@@ -438,6 +448,7 @@ testSearchCommitTomlKeyMiss = testProp1 desc "testSearchCommitTomlKeyMiss" $ do
                 repo =
                   MkRepoConfig
                     { branches = [],
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),
@@ -504,6 +515,7 @@ testSearchCommitArgsOverridesToml = testProp1 desc "testSearchCommitArgsOverride
                 repo =
                   MkRepoConfig
                     { branches = [],
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),

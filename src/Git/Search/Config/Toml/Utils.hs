@@ -7,6 +7,7 @@ module Git.Search.Config.Toml.Utils
     -- * Decoders
     osStringDecoder,
     osPathDecoder,
+    switchDecoder,
   )
 where
 
@@ -38,3 +39,10 @@ osStringDecoder = tomlDecoder >>= encodeFail
 
 osPathDecoder :: Decoder OsPath
 osPathDecoder = tomlDecoder >>= encodeValidFail
+
+switchDecoder :: Decoder Bool
+switchDecoder =
+  tomlDecoder >>= \case
+    "off" -> pure False
+    "on" -> pure True
+    other -> fail $ "Unrecognized switch: " ++ other

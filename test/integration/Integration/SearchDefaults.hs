@@ -8,6 +8,7 @@ import Git.Search.Config.Data
     RepoConfig
       ( MkRepoConfig,
         branches,
+        branchesPrefix,
         domain,
         key,
         name,
@@ -83,6 +84,7 @@ testSearchDefaults = testProp1 desc "testSearchDefaults" $ do
                 repo =
                   MkRepoConfig
                     { branches = [[osstr|*master|], [osstr|*unstable*|]],
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),
@@ -117,6 +119,7 @@ testSearchDefaults = testProp1 desc "testSearchDefaults" $ do
                 repo =
                   MkRepoConfig
                     { branches = [],
+                      branchesPrefix = (),
                       domain = (),
                       key = (),
                       name = (),

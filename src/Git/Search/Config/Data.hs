@@ -71,6 +71,14 @@ type family BranchesF p where
   BranchesF ConfigPhaseMerged = List OsString
   BranchesF ConfigPhaseEnv = List OsString
 
+type BranchesPrefixF :: ConfigPhase -> Type
+type family BranchesPrefixF p where
+  BranchesPrefixF ConfigPhaseArgs1 = Maybe Bool
+  BranchesPrefixF ConfigPhaseToml = Maybe Bool
+  BranchesPrefixF ConfigPhaseTomlRepoDefaults = ()
+  BranchesPrefixF ConfigPhaseMerged = Bool
+  BranchesPrefixF ConfigPhaseEnv = ()
+
 type DomainF :: ConfigPhase -> Type
 type family DomainF p where
   DomainF ConfigPhaseArgs1 = Maybe (WithDisabled Domain)
@@ -124,6 +132,8 @@ type RepoConfig :: ConfigPhase -> Type
 data RepoConfig p = MkRepoConfig
   { -- | Branch filters.
     branches :: BranchesF p,
+    -- | If true, prepends the remoteName to the branches.
+    branchesPrefix :: BranchesPrefixF p,
     -- | Domain e.g. github.com
     domain :: DomainF p,
     -- | Optional key, for allowing multiple map entries with duplicate keys.
@@ -142,6 +152,7 @@ data RepoConfig p = MkRepoConfig
 
 deriving stock instance
   ( Eq (BranchesF p),
+    Eq (BranchesPrefixF p),
     Eq (DomainF p),
     Eq (KeyF p),
     Eq (NameF p RepoName),
@@ -153,6 +164,7 @@ deriving stock instance
 
 deriving stock instance
   ( Show (BranchesF p),
+    Show (BranchesPrefixF p),
     Show (DomainF p),
     Show (KeyF p),
     Show (NameF p RepoName),
@@ -169,6 +181,7 @@ instance DecodeTOML (RepoConfig ConfigPhaseTomlRepoDefaults) where
     pure
       $ MkRepoConfig
         { branches = (),
+          branchesPrefix = (),
           domain = (),
           key = (),
           name,
@@ -182,6 +195,7 @@ instance DecodeTOML (RepoConfig ConfigPhaseTomlRepoDefaults) where
 instance DecodeTOML (RepoConfig ConfigPhaseToml) where
   tomlDecoder = do
     branches <- branchesDecoder
+    branchesPrefix <- branchesPrefixDecoder
     domain <- domainDecoder
     key <- keyDecoder
     name <- nameDecoder
@@ -192,6 +206,7 @@ instance DecodeTOML (RepoConfig ConfigPhaseToml) where
     pure
       $ MkRepoConfig
         { branches,
+          branchesPrefix,
           domain,
           key,
           name,
@@ -205,6 +220,9 @@ instance DecodeTOML (RepoConfig ConfigPhaseToml) where
         case mBranches of
           Nothing -> pure []
           Just bs -> traverse encodeFail bs
+
+      branchesPrefixDecoder =
+        getFieldOptWith Toml.Utils.switchDecoder "branches-prefix"
 
       domainDecoder = getFieldOptWith tomlDecoder "domain"
 

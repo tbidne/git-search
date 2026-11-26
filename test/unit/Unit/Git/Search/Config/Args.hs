@@ -16,6 +16,7 @@ import Git.Search.Config.Data
     RepoConfig
       ( MkRepoConfig,
         branches,
+        branchesPrefix,
         domain,
         key,
         name,
@@ -258,6 +259,8 @@ repoTests =
     "Repository options"
     [ testBranchesOn,
       testBranchesOff,
+      testBranchesPrefixOn,
+      testBranchesPrefixOff,
       testDomain,
       testDomainOff,
       testName,
@@ -306,6 +309,36 @@ testBranchesOff = testProp1 desc "testBranchesOff" $ do
       ]
 
     e = set' (#coreConfig % #repo % #branches) (Just Disabled) defArgs
+
+testBranchesPrefixOn :: TestTree
+testBranchesPrefixOn = testProp1 desc "testBranchesPrefixOn" $ do
+  testGetArgs e args
+  where
+    desc = "Parses --branches-prefix on"
+
+    args =
+      [ "--branches-prefix",
+        "on",
+        "search-commit",
+        commitStr
+      ]
+
+    e = set' (#coreConfig % #repo % #branchesPrefix) (Just True) defArgs
+
+testBranchesPrefixOff :: TestTree
+testBranchesPrefixOff = testProp1 desc "testBranchesPrefixOff" $ do
+  testGetArgs e args
+  where
+    desc = "Parses --branches-prefix off"
+
+    args =
+      [ "--branches-prefix",
+        "off",
+        "search-commit",
+        commitStr
+      ]
+
+    e = set' (#coreConfig % #repo % #branchesPrefix) (Just False) defArgs
 
 testDomain :: TestTree
 testDomain = testProp1 desc "testDomain" $ do
@@ -630,6 +663,7 @@ defArgs =
             repo =
               MkRepoConfig
                 { branches = Nothing,
+                  branchesPrefix = Nothing,
                   domain = Nothing,
                   key = (),
                   name = Nothing,

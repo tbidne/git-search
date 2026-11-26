@@ -20,6 +20,7 @@ import Effectful.FileSystem.PathWriter.Dynamic qualified as PW
 import Effectful.HTTP.Client.Static qualified as Eff.Http
 import Effectful.Time.Static qualified as Time
 import Git.Search.Config (Env)
+import Git.Search.Config qualified as Config
 import Git.Search.Config.Data
   ( DeleteCacheType (DeleteCacheGlobal, DeleteCacheLocal),
     SearchBaseParams,
@@ -43,7 +44,6 @@ import Git.Search.Logging qualified as Logging
 import Git.Search.Prelude
 import Git.Search.Process qualified as Process
 import Network.HTTP.Client qualified as Http
-import System.OsString (OsChar)
 import System.OsString qualified as OsStr
 
 -- | Deletes the cache.
@@ -375,7 +375,6 @@ findBranches eBranchCommit repoPath = do
 
     onCommit commit = do
       env <- ask @Env
-
       let gitDefArgs =
             [ [osstr|branch|],
               [osstr|-r|],
@@ -423,9 +422,9 @@ branchToCommit branch repoPath = do
   let branchOsStr = branch ^. #unBranch
 
   qualBranch <-
-    if OsStr.elem slashChar branchOsStr
+    if OsStr.elem Config.slashChar branchOsStr
       then pure branchOsStr
-      else prependRemoteName branchOsStr
+      else prependRemoteNameM branchOsStr
 
   let qualBranchTxt = decodeLenientt qualBranch
 
@@ -569,17 +568,10 @@ withTiming_ = fmap fst . withTiming
 repoPathToOsP :: RepoPath -> OsPath
 repoPathToOsP = toOsPath . view #unRepoPath
 
-prependRemoteName ::
+prependRemoteNameM ::
   (Reader Env :> es) =>
   OsString ->
   Eff es OsString
-prependRemoteName osStr = do
+prependRemoteNameM osStr = do
   remoteName <- asks @Env (view (#coreConfig % #repo % #remoteName))
-
-  pure
-    . (<> OsStr.cons slashChar osStr)
-    . view #unRepoRemoteName
-    $ remoteName
-
-slashChar :: OsChar
-slashChar = OsStr.unsafeFromChar '/'
+  pure $ Config.prependRemoteName remoteName osStr
